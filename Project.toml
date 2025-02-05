@@ -3,7 +3,26 @@ uuid = "eb4b4db9-47cd-4f01-94ae-6f9415abd353"
 authors = ["ddahlbom"]
 version = "1.0.0-DEV"
 
+[deps]
+FFTW = "7a1cc6ca-52ef-59f5-83cd-3a7055c09341"
+LinearAlgebra = "37e2e46d-f89d-539d-b4ee-838fcccc9c8e"
+LsqFit = "2fda8390-95c7-5789-9bda-21331edee243"
+Random = "9a3f8284-a2c9-5f02-9a11-845980a1fd5c"
+Sunny = "2b4a2ac8-8f8b-43e8-abf4-3cb0c45e8736"
+
+[weakdeps]
+GLMakie = "e9467ef8-e4e7-5192-8a1a-b1aee30e663a"
+
+[extensions]
+PlottingExt = "GLMakie"
+
 [compat]
+FFTW = "1.8.1"
+GLMakie = "0.9, 0.10, 0.11"
+LinearAlgebra = "1.11.0"
+LsqFit = "0.15.0"
+Random = "1.11.0"
+Sunny = "0.7.5"
 julia = "1.6.7"
 
 [extras]
