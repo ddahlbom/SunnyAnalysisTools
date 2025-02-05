@@ -65,7 +65,6 @@ function UniformQBroadening(bi::BinInfo, fwhm, spacing=0.1)
     interior_idcs_ft = find_points_in_bin(q0, bi, fftshift(points))
     kernel = gaussian_md(map(p -> crystal.recipvecs*p, points), q0, K)
     kernel_ft = fft(kernel, (1, 2, 3))
-    # kernel_ft .= 1/prod(size(kernel_ft))
 
     return UniformQBroadening(fwhm, spacing, kernel_ft, points, crystal, interior_idcs, interior_idcs_ft)
 end
@@ -94,5 +93,5 @@ function intensities_instrument(swt, q, qbroadeningspec; energies, energy_kernel
         Sunny.QPoints([Sunny.Vec3(q)]),
         collect(energies),
         slice,
-    ), data_conv
+    )
 end
