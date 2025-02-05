@@ -57,5 +57,4 @@ end
 # Access to PlottingExt module for developer convenience
 PlottingExt() = Base.get_extension(@__MODULE__, :PlottingExt)
 
-
 end

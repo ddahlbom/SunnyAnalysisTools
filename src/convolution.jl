@@ -33,6 +33,7 @@ struct UniformQBroadening <: AbstractQBroadening
     points  :: Array{Sunny.Vec3, 3}
     crystal :: Sunny.Crystal
     interior_idcs
+    interior_idcs_ft
 end
 
 function widen_bounds_by_factor(bounds, factor)
@@ -58,18 +59,20 @@ function UniformQBroadening(bi::BinInfo, fwhm, spacing=0.1)
     # now, just make the volume 27 times larger.
     q0 = [0., 0, 0]
     (; crystal, directions, bounds) = bi 
-    bounds_new = widen_bounds_by_factor(bounds, 3.0)
+    bounds_new = widen_bounds_by_factor(bounds, 4.0)
     points = uniform_grid_from_bin(q0, crystal, directions, bounds_new, spacing)
     interior_idcs = find_points_in_bin(q0, bi, points)
-    kernel = gaussian_md(points, q0, K)
-    kernel_ft = fft(kernel)
+    interior_idcs_ft = find_points_in_bin(q0, bi, fftshift(points))
+    kernel = gaussian_md(map(p -> crystal.recipvecs*p, points), q0, K)
+    kernel_ft = fft(kernel, (1, 2, 3))
+    # kernel_ft .= 1/prod(size(kernel_ft))
 
-    return UniformQBroadening(fwhm, spacing, kernel_ft, points, crystal, interior_idcs)
+    return UniformQBroadening(fwhm, spacing, kernel_ft, points, crystal, interior_idcs, interior_idcs_ft)
 end
 
 
 function intensities_instrument(swt, q, qbroadeningspec; energies, energy_kernel, kwargs...)
-    (; points, kernel, interior_idcs, crystal) = qbroadeningspec
+    (; points, kernel, interior_idcs_ft, crystal) = qbroadeningspec
 
     # Calculate intensities for all points in subsuming grid around bin.
     res = Sunny.intensities(swt, map(p -> p + q, points[:]); energies, kernel=energy_kernel, kwargs...)
@@ -84,12 +87,12 @@ function intensities_instrument(swt, q, qbroadeningspec; energies, energy_kernel
     data_conv = real.(ifft(data_ft, (2, 3, 4))) ./ prod(size(points))
 
     # Integrate over those slices that lie within the bin.
-    slice = sum(data_conv[:, interior_idcs], dims=(2,3,4)) ./ length(interior_idcs)
+    slice = sum(data_conv[:, interior_idcs_ft], dims=(2,3,4)) ./ length(interior_idcs_ft)
 
     return Sunny.Intensities(
         crystal,
         Sunny.QPoints([Sunny.Vec3(q)]),
         collect(energies),
         slice,
-    )
+    ), data_conv
 end

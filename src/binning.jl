@@ -122,8 +122,9 @@ function find_points_in_bin(bincenter, bininfo, points)
     make_odd_up(num::Int64) = num - num%2 + 1
     (; directions, bounds) = bininfo
     b1, b2, b3 = bounds
-    bincenter_abs = inv(directions)*bincenter # RLU to local frame
-    points_grid_basis = [inv(directions)*q for q in points] # Absolute units to local frame
+    to_local_frame = inv(directions)
+    bincenter_abs = to_local_frame*bincenter 
+    points_grid_basis = [to_local_frame*q for q in points] 
     return findall(points_grid_basis) do q
         x, y, z = q
         x_c, y_c, z_c = bincenter_abs
