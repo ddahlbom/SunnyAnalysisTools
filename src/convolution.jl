@@ -4,7 +4,7 @@
 
 # This should be rewritten based on more fundamental parameters so it works for
 # additional values. See equation from Savici.
-function E_resolution_kernel(spec::CNCSSpec)
+function energy_resolution_kernel(spec::CNCSSpec)
     (; Ei) = spec
     fwhm = if Ei ≈ 1.55
         E -> (2.4994e-4)*sqrt((Ei-E)^3 * ( (211.41149*(0.052+0.123*(Ei/(Ei-E))^1.5))^2 + (57.27700*(1.052+0.123*(Ei/(Ei-E))^1.5))^2) ) / 2.355 
@@ -27,10 +27,11 @@ abstract type AbstractQBroadening end
 
 # Add FFT plan
 struct UniformQBroadening <: AbstractQBroadening
-    fwhm    :: Float64
+    fwhm    :: Union{Float64, Array{Float64, 2}}
     spacing :: Float64
     kernel  :: Array{ComplexF64, 3}
     points  :: Array{Sunny.Vec3, 3}
+    crystal :: Sunny.Crystal
     interior_idcs
 end
 
@@ -41,46 +42,54 @@ function widen_bounds_by_factor(bounds, factor)
 end
 
 
-function UniformQBroadening(bincenter, bi::BinInfo, fwhm, spacing=0.1)
+function UniformQBroadening(bi::BinInfo, fwhm, spacing=0.1)
     (; crystal) = bi
 
     # Set up Gaussian kernel parameters
     σ = fwhm / 2√(2log(2))
-    K = if length(σ) == 1
+    K = if isa(σ, Number) 
         Matrix(1/σ * I(3))
     else 
-        diagm(1 ./ σ)
+        inv(σ)
     end
 
     # Add heuristics for determining extension of box -- probably an analysis of
-    # the extrema as a function of boundary values in local coordinates.
+    # the extrema as a function of boundary values in local coordinates. For
+    # now, just make the volume 27 times larger.
+    q0 = [0., 0, 0]
     (; crystal, directions, bounds) = bi 
-    bounds_new = widen_bounds_by_factor(bounds, 2.0)
-    bi_convolution = BinInfo(crystal, directions, bounds_new)
-    points = uniform_grid_from_bin(bincenter, bi_convolution, spacing)
-    interior_idcs = find_points_in_bin(bincenter, bi, points)
-    kernel = gaussian_md(points, crystal.recipvecs*bincenter, K)
+    bounds_new = widen_bounds_by_factor(bounds, 3.0)
+    points = uniform_grid_from_bin(q0, crystal, directions, bounds_new, spacing)
+    interior_idcs = find_points_in_bin(q0, bi, points)
+    kernel = gaussian_md(points, q0, K)
     kernel_ft = fft(kernel)
 
-    return UniformQBroadening(fwhm, spacing, kernel_ft, points, interior_idcs)
+    return UniformQBroadening(fwhm, spacing, kernel_ft, points, crystal, interior_idcs)
 end
 
 
-function instrument_intensities(swt, qbroadeningspec; energies, measure, E_kernel)
-    (; points, kernel_ft, interior_idcs) = qbroadeningspec
+function intensities_instrument(swt, q, qbroadeningspec; energies, energy_kernel, kwargs...)
+    (; points, kernel, interior_idcs, crystal) = qbroadeningspec
 
-    # Calculate intensities for all points in subsuming grid around bin
-    res = intensities(swt, points[:]; energies, measure, kernel=E_kernel)
+    # Calculate intensities for all points in subsuming grid around bin.
+    res = Sunny.intensities(swt, map(p -> p + q, points[:]); energies, kernel=energy_kernel, kwargs...)
     data = reshape(res.data, (length(energies), size(points)...))
 
-    # Convolve along Q-axes only using an FFT
+    # Convolve along Q-axes only using an FFT. Unfortunately, energy is the fast
+    # axis. Can tweak later.
     data_ft = fft(data, (2, 3, 4))
     for i in axes(data_ft, 1)
-        data_ft[i,:,:,:] .*= kernel_ft
+        data_ft[i,:,:,:] .*= kernel
     end
-    data_conv = real.(ifft(data_ft, (2, 3, 4))) ./ prod(size(points))^2
+    data_conv = real.(ifft(data_ft, (2, 3, 4))) ./ prod(size(points))
 
-    # Integrate over those slices that lie within the bin
+    # Integrate over those slices that lie within the bin.
     slice = sum(data_conv[:, interior_idcs], dims=(2,3,4)) ./ length(interior_idcs)
-    return dropdims(slice; dims=(2,))
+
+    return Sunny.Intensities(
+        crystal,
+        Sunny.QPoints([Sunny.Vec3(q)]),
+        collect(energies),
+        slice,
+    )
 end

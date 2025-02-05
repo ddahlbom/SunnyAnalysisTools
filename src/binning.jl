@@ -98,9 +98,8 @@ end
 
 
 """
-function uniform_grid_from_bin(q, bininfo::BinInfo, spacing)
+function uniform_grid_from_bin(q, crystal, directions, bounds, spacing)
     make_odd_up(num::Int64) = num - num%2 + 1
-    (; crystal, directions, bounds) = bininfo
     (; recipvecs) = crystal
 
     # Make oversized set of points to fill integration region.
