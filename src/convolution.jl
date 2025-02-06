@@ -28,11 +28,10 @@ abstract type AbstractQBroadening end
 # Add FFT plan
 struct UniformQBroadening <: AbstractQBroadening
     fwhm    :: Union{Float64, Array{Float64, 2}}
-    spacing :: Float64
     kernel  :: Array{ComplexF64, 3}
     points  :: Array{Sunny.Vec3, 3}
     crystal :: Sunny.Crystal
-    interior_idcs
+    interior_idcs   # Ultimately don't need to keep these -- keep around for debugging.
     interior_idcs_ft
 end
 
@@ -43,30 +42,28 @@ function widen_bounds_by_factor(bounds, factor)
 end
 
 
-function UniformQBroadening(bi::BinInfo, fwhm, spacing=0.1)
+function UniformQBroadening(bi::BinInfo, fwhm; nsigmas=3, sampdensity=1)
     (; crystal) = bi
 
     # Set up Gaussian kernel parameters
     σ = fwhm / 2√(2log(2))
-    K = if isa(σ, Number) 
-        Matrix(1/σ * I(3))
-    else 
-        inv(σ)
+    Σ = if isa(σ, Number)
+        σ*I(3)
+    else
+        σ
     end
 
     # Add heuristics for determining extension of box -- probably an analysis of
     # the extrema as a function of boundary values in local coordinates. For
     # now, just make the volume 27 times larger.
     q0 = [0., 0, 0]
-    (; crystal, directions, bounds) = bi 
-    bounds_new = widen_bounds_by_factor(bounds, 4.0)
-    points = uniform_grid_from_bin(q0, crystal, directions, bounds_new, spacing)
+    points = sample_bin_and_surrounds(q0, bi; sigma=Σ, nsigmas, sampdensity)
     interior_idcs = find_points_in_bin(q0, bi, points)
     interior_idcs_ft = find_points_in_bin(q0, bi, fftshift(points))
-    kernel = gaussian_md(map(p -> crystal.recipvecs*p, points), q0, K)
+    kernel = gaussian_md(map(p -> crystal.recipvecs*p, points), q0, Σ)
     kernel_ft = fft(kernel, (1, 2, 3))
 
-    return UniformQBroadening(fwhm, spacing, kernel_ft, points, crystal, interior_idcs, interior_idcs_ft)
+    return UniformQBroadening(fwhm, kernel_ft, points, crystal, interior_idcs, interior_idcs_ft)
 end
 
 

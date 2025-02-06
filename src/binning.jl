@@ -13,16 +13,53 @@ struct BinInfo
 end
 
 
-function corners_of_parallelepiped(directions, bounds; offset=Sunny.Vec3(0, 0, 0))
+function corners_of_parallelepiped(directions, bounds; offset=[0., 0, 0])
     points = []
     b1, b2, b3 = bounds
     for k in 1:2, j in 1:2, i in 1:2 
-        q_corner = offset + directions * Sunny.Vec3(b1[i], b2[j], b3[k])
+        q_corner = offset + directions * [b1[i], b2[j], b3[k]]
         push!(points, q_corner)
     end
     return points
 end
 corners_of_parallelepiped(bi::BinInfo; offset=Sunny.Vec3(0, 0, 0)) = corners_of_parallelepiped(bi.directions, bi.bounds; offset)
+
+function sample_bin_and_surrounds(q, bininfo::BinInfo; sigma, nsigmas=3, sampdensity=1)
+    make_odd_up(num::Int64) = num - num%2 + 1
+    (; crystal, directions, bounds) = bininfo
+    (; recipvecs) = crystal
+
+    # Determine bounds of parallelpiped determined by scaled eigenvectors of σ
+    # matrix. Use these values to determine how large a box to make.
+    σ = if isa(sigma, Number)
+        sigma*I(3)
+    else
+        sigma
+    end
+    vals, vecs = eigen(σ)
+    bounds_σ = [(0, val) for val in vals]
+    extrema_σ = [extrema([corner[i] for corner in corners_of_parallelepiped(vecs, bounds_σ)]) for i in 1:3]
+    σs = [extrema[2] for extrema in extrema_σ] 
+
+    linear_distance = minimum(σs)/sampdensity
+
+    # Make oversized set of points to fill integration region.
+    corners_bin = map(point -> recipvecs*point, corners_of_parallelepiped(directions, bounds))
+    extrema_bin = [extrema([corner[i] for corner in corners_bin]) for i in 1:3]
+    extrema_bin = map(zip(extrema_bin, σs)) do (extrema, σ)
+        (extrema[1] - nsigmas*σ, extrema[2] + nsigmas*σ)
+    end
+    na, nb, nc = [floor(Int64, make_odd_up(round(Int64, abs(hi - lo)/linear_distance)) / 2) for (hi, lo) in extrema_bin]
+    grid_abs = [linear_distance * [a, b, c] for a in -na:na, b in -nb:nb, c in -nc:nc] 
+
+    # Convert into coordinates with respect to direction vectors and filter out
+    # points outside of integration region.
+    points_local_frame = [inv(directions)*inv(recipvecs)*q for q in grid_abs]
+
+    # Add back bin center and convert to RLU before returning.
+    return [Sunny.Vec3(q) + directions*point for point in points_local_frame]
+end
+
 
 
 """
@@ -46,17 +83,18 @@ function sample_bin_uniform_abs(q, bininfo::BinInfo, linear_distance=1.0)
     # Convert into coordinates with respect to direction vectors and filter ou# 
 # t
     # points outside of integration region.
-    grid_basis = [inv(directions)*inv(recipvecs)*q for q in grid_abs]
-    good_points_basis = filter(grid_basis) do q
-        x, y, z = q
-        if b1[1] <= x <= b1[2] && b2[1] <= y <= b2[2] && b3[1] <= z <= b3[2]
-            return true
-        end
-        false
-    end
+    points_local_frame = [inv(directions)*inv(recipvecs)*q for q in grid_abs]
+    # good_points_local_frame = filter(points_local_frame) do q
+    #     x, y, z = q
+    #     if b1[1] <= x <= b1[2] && b2[1] <= y <= b2[2] && b3[1] <= z <= b3[2]
+    #         return true
+    #     end
+    #     false
+    # end
+    good_points_local_frame = points_local_frame
 
     # Add back bin center and convert to RLU before returning.
-    return [Sunny.Vec3(q) + directions*point for point in good_points_basis]
+    return [Sunny.Vec3(q) + directions*point for point in good_points_local_frame]
 end
 
 

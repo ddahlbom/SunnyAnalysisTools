@@ -1,11 +1,11 @@
 # Un-normalized Gaussian function where K = Σ⁻¹.
 gaussian_func(v, μ, K) = exp(-((v-μ)' * K * (v-μ))/2)
 
-# Normalized Gaussian function. K = Σ⁻¹
-function gaussian_md(vs, μ, K)
+# Normalized Gaussian function. 
+function gaussian_md(vs, μ, Σ)
     k = length(vs[1])
-    coef =  sqrt(det(K)/((2π)^k))
-    map(v -> coef*exp(-0.5((v-μ)' * K * (v-μ))), vs)
+    coef =  1/sqrt(det(Σ)*(2π)^k)
+    map(v -> coef*exp(-((v-μ)' * inv(Σ) * (v-μ))/2), vs)
 end
 
 # Multidimensional Gaussian samplers. Note that given Σs from hdf5 file are only
