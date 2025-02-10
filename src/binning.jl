@@ -24,7 +24,7 @@ function corners_of_parallelepiped(directions, bounds; offset=[0., 0, 0])
 end
 corners_of_parallelepiped(bi::BinInfo; offset=Sunny.Vec3(0, 0, 0)) = corners_of_parallelepiped(bi.directions, bi.bounds; offset)
 
-function sample_bin_and_surrounds(q, bininfo::BinInfo; sigma, nsigmas=3, sampdensity=1)
+function sample_bin_and_surrounds(q, bininfo::BinInfo; sigma, nsigmas=5, sampdensity=1)
     make_odd_up(num::Int64) = num - num%2 + 1
     (; crystal, directions, bounds) = bininfo
     (; recipvecs) = crystal
@@ -39,9 +39,10 @@ function sample_bin_and_surrounds(q, bininfo::BinInfo; sigma, nsigmas=3, sampden
     vals, vecs = eigen(σ)
     bounds_σ = [(0, val) for val in vals]
     extrema_σ = [extrema([corner[i] for corner in corners_of_parallelepiped(vecs, bounds_σ)]) for i in 1:3]
-    σs = [extrema[2] for extrema in extrema_σ] 
+    σs = [3extrema[2] for extrema in extrema_σ] 
 
-    linear_distance = minimum(σs)/sampdensity
+    # Set the sampling density for points per some number of sigmas.
+    stepsize = 3minimum(σs)/sampdensity
 
     # Make oversized set of points to fill integration region.
     corners_bin = map(point -> recipvecs*point, corners_of_parallelepiped(directions, bounds))
@@ -49,8 +50,8 @@ function sample_bin_and_surrounds(q, bininfo::BinInfo; sigma, nsigmas=3, sampden
     extrema_bin = map(zip(extrema_bin, σs)) do (extrema, σ)
         (extrema[1] - nsigmas*σ, extrema[2] + nsigmas*σ)
     end
-    na, nb, nc = [floor(Int64, make_odd_up(round(Int64, abs(hi - lo)/linear_distance)) / 2) for (hi, lo) in extrema_bin]
-    grid_abs = [linear_distance * [a, b, c] for a in -na:na, b in -nb:nb, c in -nc:nc] 
+    na, nb, nc = [floor(Int64, make_odd_up(round(Int64, abs(hi - lo)/stepsize)) / 2) for (hi, lo) in extrema_bin]
+    grid_abs = [stepsize * [a, b, c] for a in -na:na, b in -nb:nb, c in -nc:nc] 
 
     # Convert into coordinates with respect to direction vectors and filter out
     # points outside of integration region.

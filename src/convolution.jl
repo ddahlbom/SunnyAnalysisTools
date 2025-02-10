@@ -82,7 +82,8 @@ function intensities_instrument(swt, q, qbroadeningspec; energies, energy_kernel
     end
     data_conv = real.(ifft(data_ft, (2, 3, 4))) ./ prod(size(points))
 
-    # Integrate over those slices that lie within the bin.
+    # Integrate over those slices that lie within the bin and normalize to the
+    # number of samples.
     slice = sum(data_conv[:, interior_idcs_ft], dims=(2,3,4)) ./ length(interior_idcs_ft)
 
     return Sunny.Intensities(
