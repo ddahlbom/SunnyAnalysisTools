@@ -67,8 +67,8 @@ function UniformQBroadening(bi::BinInfo, fwhm; nsigmas=3, sampdensity=1)
 end
 
 
-function intensities_instrument(swt, q, qbroadeningspec; energies, energy_kernel, kwargs...)
-    (; points, kernel, interior_idcs_ft, crystal) = qbroadeningspec
+function intensities_instrument(swt, q; energies, energy_kernel, broadening_spec, kwargs...)
+    (; points, kernel, interior_idcs_ft, crystal) = broadening_spec
 
     # Calculate intensities for all points in subsuming grid around bin.
     res = Sunny.intensities(swt, map(p -> p + q, points[:]); energies, kernel=energy_kernel, kwargs...)
