@@ -66,6 +66,11 @@ function UniformQBroadening(bi::BinInfo, fwhm; nsigmas=3, sampdensity=1)
     return UniformQBroadening(fwhm, kernel_ft, points, crystal, interior_idcs, interior_idcs_ft)
 end
 
+function Base.show(io::IO, broadening_spec::UniformQBroadening)
+    println(io, "UniformQBroadening. FWHM: ")
+    display(broadening_spec.fwhm)
+end
+
 
 function intensities_instrument(swt, q; energies, energy_kernel, broadening_spec, kwargs...)
     (; points, kernel, interior_idcs_ft, crystal) = broadening_spec

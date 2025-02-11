@@ -1,6 +1,6 @@
 module PlottingExt
 
-using SunnyHelpersORNL, GLMakie
+using SunnyHelpersORNL, GLMakie, FFTW
 
 
 # Draw a bounding box for the a set of parameters that would be given to the bin sampling functions.
@@ -17,6 +17,35 @@ function SunnyHelpersORNL.draw_boundary!(ax, q, directions, bounds; color=:black
     for boundary in boundaries
         lines!(ax, boundary; color, linewidth, kwargs...)
     end
+end
+
+function SunnyHelpersORNL.visualize_binning_parameters(q_target, bi, spec)
+    fig = Figure(size=(1800, 400))
+    (; crystal) = bi
+
+    ax1 = LScene(fig[1,1])
+    ax2 = LScene(fig[1,2])
+    ax3 = LScene(fig[1,3])
+    ax4 = LScene(fig[1,4])
+
+    pts_abs = map(q -> crystal.recipvecs*(q+q_target), spec.points)
+    xs = [p[1] for p in pts_abs[:,1,1]]
+    ys = [p[2] for p in pts_abs[1,:,1]]
+    zs = [p[3] for p in pts_abs[1,1,:]]
+
+    scatter!(ax1, pts_abs[:])
+    draw_boundary!(ax1, q_target, bi.directions, bi.bounds; recipvecs=crystal.recipvecs)
+
+    volume!(ax2, xs[1]..xs[end], ys[1]..ys[end], zs[1]..zs[end], real.(ifft(spec.kernel)))
+    draw_boundary!(ax2, q_target, bi.directions, bi.bounds; recipvecs=crystal.recipvecs)
+
+    scatter!(ax3, map(p -> p + q_target, spec.points[:]))
+    draw_boundary!(ax3, q_target, bi.directions, bi.bounds)
+
+    scatter!(ax4, map(p -> p + q_target, spec.points[spec.interior_idcs]))
+    draw_boundary!(ax4, q_target, bi.directions, bi.bounds)
+
+    return fig
 end
 
 end
