@@ -29,7 +29,7 @@ function is_pkg_loaded(pkg::Symbol)
 end
 
 extension_fns = [
-    :GLMakie => [:draw_boundary!, :visualize_binning_parameters],
+    :GLMakie => [:draw_boundary!, :visualize_bin, :visualize_binning],
 ]
 
 for (_pkg, fns) in extension_fns

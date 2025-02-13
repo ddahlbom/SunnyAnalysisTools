@@ -43,12 +43,6 @@ struct SeparableUniformQBroadening <: AbstractConvolution
 end
 
 
-function widen_bounds_by_factor(bounds, factor)
-    Δs = [(b[2] - b[1]) for b in bounds]
-    centers = [(b[1] + b[2])/2 for b in bounds]
-    return [(c - factor*Δ/2, c + factor*Δ/2) for (c, Δ) in zip(centers, Δs)]
-end
-
 function SeparableUniformQBroadening(bi::BinSpec, bin_fwhm, Ekernel; nsigmas=3, sampdensity=1)
     (; crystal) = bi
 

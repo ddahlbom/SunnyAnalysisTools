@@ -21,7 +21,6 @@ struct BinSpec
     end
 end
 
-Base.show(io::IO)
 
 
 abstract type AbstractBinning end
@@ -29,10 +28,9 @@ abstract type AbstractBinning end
 struct UniformBinning <: AbstractBinning
     binspec    :: BinSpec
     bincenters :: Array{Vector{Float64}, 3}
-
     Ecenters   :: Vector{Float64}
     ΔE         :: Float64
-end
+end 
 
 function UniformBinning(crystal, directions, Us, Vs, Ws, Es)
     ΔU, ΔV, ΔW, ΔE = map([Us, Vs, Ws, Es]) do vals
@@ -41,9 +39,23 @@ function UniformBinning(crystal, directions, Us, Vs, Ws, Es)
         Δs[1]
     end
     binspec = BinSpec(crystal, directions, ΔU, ΔV, ΔW, ΔE)
-    bincenters = [[U, V, W] for U in Us, V in Vs, W in Ws]
+
+    # If only bounds are given, determine center point.
+    Us, Vs, Ws, Es = map([Us, Vs, Ws, Es]) do vals
+        if length(vals) == 2
+            [(vals[2]+vals[1])/2]
+        else
+            vals
+        end
+    end
+
+    bincenters = [directions*[U, V, W] for U in Us, V in Vs, W in Ws]
 
     return UniformBinning(binspec, bincenters, Es, ΔE)
+end
+
+function Base.show(io::IO, binning::UniformBinning)
+    println(io, "UniformBinning: ")
 end
 
 
@@ -58,6 +70,41 @@ function corners_of_parallelepiped(directions, bounds; offset=[0., 0, 0])
 end
 corners_of_parallelepiped(bi::BinSpec; offset=Sunny.Vec3(0, 0, 0)) = corners_of_parallelepiped(bi.directions, bi.bounds; offset)
 
+function sample_binning_and_surrounds(binning::UniformBinning, σ)
+    (; crystal, directions, bounds) = bininfo
+    (; recipvecs) = crystal
+
+    # Determine bounds of parallelpiped determined by scaled eigenvectors of σ
+    # matrix. Use these values to determine how large a box to make.
+    σ = if isa(sigma, Number)
+        sigma*I(3)
+    else
+        sigma
+    end
+    vals, vecs = eigen(σ)
+    bounds_σ = [(0, val) for val in vals]
+    extrema_σ = [extrema([corner[i] for corner in corners_of_parallelepiped(vecs, bounds_σ)]) for i in 1:3]
+    σs = [3extrema[2] for extrema in extrema_σ] 
+
+    # Set the sampling density for points per some number of sigmas.
+    stepsize = 3minimum(σs)/sampdensity
+
+    # Make oversized set of points to fill integration region.
+    corners_bin = map(point -> recipvecs*point, corners_of_parallelepiped(directions, bounds))
+    extrema_bin = [extrema([corner[i] for corner in corners_bin]) for i in 1:3]
+    extrema_bin = map(zip(extrema_bin, σs)) do (extrema, σ)
+        (extrema[1] - nsigmas*σ, extrema[2] + nsigmas*σ)
+    end
+    na, nb, nc = [floor(Int64, make_odd_up(round(Int64, abs(hi - lo)/stepsize)) / 2) for (hi, lo) in extrema_bin]
+    grid_abs = [stepsize * [a, b, c] for a in -na:na, b in -nb:nb, c in -nc:nc] 
+
+    # Convert into coordinates with respect to direction vectors and filter out
+    # points outside of integration region.
+    points_local_frame = [inv(directions)*inv(recipvecs)*q for q in grid_abs]
+
+    # Add back bin center and convert to RLU before returning.
+    return [Sunny.Vec3(q) + directions*point for point in points_local_frame]
+end
 
 
 

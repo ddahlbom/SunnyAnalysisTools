@@ -19,7 +19,7 @@ function SunnyHelpersORNL.draw_boundary!(ax, q, directions, bounds; color=:black
     end
 end
 
-function SunnyHelpersORNL.visualize_binning_parameters(q_target, bi, spec)
+function SunnyHelpersORNL.visualize_bin(q_target, bi, spec)
     fig = Figure(size=(1800, 400))
     (; crystal) = bi
 
@@ -44,6 +44,20 @@ function SunnyHelpersORNL.visualize_binning_parameters(q_target, bi, spec)
 
     scatter!(ax4, map(p -> p + q_target, spec.points[spec.interior_idcs]))
     draw_boundary!(ax4, q_target, bi.directions, bi.bounds)
+
+    return fig
+end
+
+function SunnyHelpersORNL.visualize_binning(binning::SunnyHelpersORNL.UniformBinning; labframe=false)
+    fig = Figure(size=(1800, 400))
+    (; binspec, bincenters) = binning
+    (; crystal, directions, bounds) = binspec
+
+    ax1 = LScene(fig[1,1])
+
+    for q in bincenters
+        draw_boundary!(ax1, q, directions, bounds; recipvecs = labframe ? crystal.recipvecs : nothing)
+    end
 
     return fig
 end
