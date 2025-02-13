@@ -67,9 +67,36 @@ function SeparableUniformQBroadening(bi::BinSpec, bin_fwhm, Ekernel; nsigmas=3, 
     return SeparableUniformQBroadening(crystal, bin_fwhm, Qkernel_ft, points, interior_idcs, interior_idcs_ft, Ekernel)
 end
 
+function SeparableUniformQBroadening(binning::UniformBinning, bin_fwhm, Ekernel; nsigmas=3, sampdensity=1)
+    (; binspec, bincenters) = binning
+    (; crystal, directions, bounds) = binspec
+
+    # Set up Gaussian kernel parameters
+    σ = bin_fwhm / 2√(2log(2))
+    Σ = if isa(σ, Number)
+        σ*I(3)
+    else
+        σ
+    end
+
+    # Add heuristics for determining extension of box -- probably an analysis of
+    # the extrema as a function of boundary values in local coordinates. For
+    # now, just make the volume 27 times larger.
+    q0 = [0., 0, 0]
+    points = sample_binning_and_surrounds(binning, Σ; nsigmas, sampdensity)
+    interior_idcs = find_points_in_bin(q0, bi, points)
+    interior_idcs_ft = find_points_in_bin(q0, bi, fftshift(points))
+    Qkernel = gaussian_md(map(p -> crystal.recipvecs*p, points), q0, Σ)
+    Qkernel_ft = fft(Qkernel, (1, 2, 3))
+
+    return SeparableUniformQBroadening(crystal, bin_fwhm, Qkernel_ft, points, interior_idcs, interior_idcs_ft, Ekernel)
+end
+
+
 function Base.show(io::IO, broadening_spec::SeparableUniformQBroadening)
     println(io, "SeparableUniformQBroadening. FWHM: ")
 end
+
 
 
 function intensities_instrument(swt, q; energies, broadening_spec, kwargs...)
