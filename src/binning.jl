@@ -1,3 +1,6 @@
+make_odd_up(num::Int64) = num - num%2 + 1
+make_odd_down(num::Int64) = num + num%2 - 1
+
 """
     BinInfo(crystal, directions, bounds)
 
@@ -6,10 +9,41 @@ Construct a `BinInfo` using a Sunny `Crystal`, the local reference frame
 frame. The latter two pieces of information are what are given to Shiver when
 produces a 1-D slice.
 """
-struct BinInfo
+struct BinSpec
     crystal    :: Sunny.Crystal
     directions :: Array{Float64, 2}
     bounds     :: Vector{Tuple{Float64, Float64}}
+    ΔE         :: Float64
+
+    function BinSpec(crystal, directions, ΔU, ΔV, ΔW, ΔE)
+        bounds = [(-Δ/2, Δ/2) for Δ in [ΔU, ΔV, ΔW]]
+        new(crystal, directions, bounds, ΔE)
+    end
+end
+
+Base.show(io::IO)
+
+
+abstract type AbstractBinning end
+
+struct UniformBinning <: AbstractBinning
+    binspec    :: BinSpec
+    bincenters :: Array{Vector{Float64}, 3}
+
+    Ecenters   :: Vector{Float64}
+    ΔE         :: Float64
+end
+
+function UniformBinning(crystal, directions, Us, Vs, Ws, Es)
+    ΔU, ΔV, ΔW, ΔE = map([Us, Vs, Ws, Es]) do vals
+        Δs = vals[2:end] .- vals[1:end-1]
+        @assert allequal(Δs) "Step sizes must all be equal for a uniform binning"
+        Δs[1]
+    end
+    binspec = BinSpec(crystal, directions, ΔU, ΔV, ΔW, ΔE)
+    bincenters = [[U, V, W] for U in Us, V in Vs, W in Ws]
+
+    return UniformBinning(binspec, bincenters, Es, ΔE)
 end
 
 
@@ -22,10 +56,12 @@ function corners_of_parallelepiped(directions, bounds; offset=[0., 0, 0])
     end
     return points
 end
-corners_of_parallelepiped(bi::BinInfo; offset=Sunny.Vec3(0, 0, 0)) = corners_of_parallelepiped(bi.directions, bi.bounds; offset)
+corners_of_parallelepiped(bi::BinSpec; offset=Sunny.Vec3(0, 0, 0)) = corners_of_parallelepiped(bi.directions, bi.bounds; offset)
 
-function sample_bin_and_surrounds(q, bininfo::BinInfo; sigma, nsigmas=5, sampdensity=1)
-    make_odd_up(num::Int64) = num - num%2 + 1
+
+
+
+function sample_bin_and_surrounds(q, bininfo::BinSpec; sigma, nsigmas=5, sampdensity=1)
     (; crystal, directions, bounds) = bininfo
     (; recipvecs) = crystal
 
@@ -69,8 +105,7 @@ end
 Sample points inside the bin uniformly in absolute units. `linear_distance` is
 given in Å⁻¹.
 """
-function sample_bin_uniform_abs(q, bininfo::BinInfo, linear_distance=1.0)
-    make_odd_up(num::Int64) = num - num%2 + 1
+function sample_bin_uniform_abs(q, bininfo::BinSpec, linear_distance=1.0)
     (; crystal, directions, bounds) = bininfo
     (; recipvecs) = crystal
     b1, b2, b3 = bounds
@@ -105,8 +140,7 @@ end
 Sample points inside the bin uniformly in RLU. `linear_distance` is
 given in RLU.
 """
-function sample_bin_uniform_rlu(q, bininfo::BinInfo; linear_distance=1.0)
-    make_odd_down(num::Int64) = num + num%2 - 1
+function sample_bin_uniform_rlu(q, bininfo::BinSpec; linear_distance=1.0)
     (; crystal, directions, bounds) = bininfo
     (; recipvecs) = crystal
     q = Sunny.Vec3(q)
@@ -125,7 +159,7 @@ end
 Sample points in bin at random uniformly along each axis. The number of samples
 is set with `nsamples` keyword. 
 """
-function sample_bin_mc(q, bininfo::BinInfo; nsamples=10)
+function sample_bin_mc(q, bininfo::BinSpec; nsamples=10)
     (; directions, bounds) = bininfo
     sample_coef((min, max)) = min + (max-min)*rand()
     return [Sunny.Vec3(q) + directions * [sample_coef(bounds) for bounds in bounds] for _ in 1:nsamples] 
@@ -138,7 +172,6 @@ end
 
 """
 function uniform_grid_from_bin(q, crystal, directions, bounds, spacing)
-    make_odd_up(num::Int64) = num - num%2 + 1
     (; recipvecs) = crystal
 
     # Make oversized set of points to fill integration region.
@@ -158,15 +191,17 @@ Given a list of `points`, return the indices of points that lie within the
 specified bin.
 """
 function find_points_in_bin(bincenter, bininfo, points)
-    make_odd_up(num::Int64) = num - num%2 + 1
     (; directions, bounds) = bininfo
     b1, b2, b3 = bounds
+
+    # Convert all information into local bin coordinates. 
     to_local_frame = inv(directions)
-    bincenter_abs = to_local_frame*bincenter 
-    points_grid_basis = [to_local_frame*q for q in points] 
-    return findall(points_grid_basis) do q
+    bincenter = to_local_frame*bincenter 
+    points = [to_local_frame*q for q in points] 
+
+    return findall(points) do q
         x, y, z = q
-        x_c, y_c, z_c = bincenter_abs
+        x_c, y_c, z_c = bincenter
         if b1[1] <= x - x_c <= b1[2] && b2[1] <= y - y_c <= b2[2] && b3[1] <= z - z_c <= b3[2]
             return true
         end
