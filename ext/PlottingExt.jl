@@ -50,8 +50,8 @@ end
 
 function SunnyHelpersORNL.visualize_binning(binning::SunnyHelpersORNL.UniformBinning; labframe=false)
     fig = Figure()
-    (; binspec, bincenters) = binning
-    (; crystal, directions, bounds) = binspec
+    (; crystal, directions, Δs, bincenters) = binning
+    bounds = [(-Δ/2, Δ/2) for Δ in Δs[1:3]]
 
     ax1 = LScene(fig[1,1])
 

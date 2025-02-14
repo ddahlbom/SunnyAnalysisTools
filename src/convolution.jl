@@ -30,139 +30,69 @@ end
 abstract type AbstractConvolution end
 
 # Add IFFT plan
-struct SeparableUniformQBroadening <: AbstractConvolution
-    crystal  :: Sunny.Crystal                       # Keep around for recipvecs
+struct UniformQBroadening <: AbstractConvolution
+    binning  :: UniformBinning
 
-    Qfwhm    :: Union{Float64, Array{Float64, 2}}   # Note needed after construction, but useful to be able to report
-    Qkernel  :: Array{ComplexF64, 3}                # Fourier trasnformed convolution kernel
+    qfwhm    :: Union{Float64, Array{Float64, 2}}   # Note needed after construction, but useful to be able to report
+    qkernel  :: Array{ComplexF64, 3}                # Fourier trasnformed convolution kernel
     points   :: Array{Sunny.Vec3, 3}                # Sampled points in momentum space
     interior_idcs                                   # Indices
     interior_idcs_ft
 
-    Ekernel 
+    ekernel  :: Sunny.AbstractBroadening
 end
 
 
-function SeparableUniformQBroadening(bi::BinSpec, bin_fwhm, Ekernel; nsigmas=3, sampdensity=1)
-    (; crystal) = bi
+function UniformQBroadening(binning::UniformBinning, bin_fwhm, ekernel; nperbin, nghosts)
+    (; crystal, Δs, bincenters, directions) = binning
 
-    # Set up Gaussian kernel parameters
+    # Convert broadening parameters to a covariance matrix.
     σ = bin_fwhm / 2√(2log(2))
-    Σ = if isa(σ, Number)
-        σ*I(3)
-    else
-        σ
-    end
+    Σ = isa(σ, Number) ? σ*I(3) : σ
 
-    # Add heuristics for determining extension of box -- probably an analysis of
-    # the extrema as a function of boundary values in local coordinates. For
-    # now, just make the volume 27 times larger.
-    q0 = [0., 0, 0]
-    points = sample_bin_and_surrounds(q0, bi; sigma=Σ, nsigmas, sampdensity)
-    interior_idcs = find_points_in_bin(q0, bi, points)
-    interior_idcs_ft = find_points_in_bin(q0, bi, fftshift(points))
-    Qkernel = gaussian_md(map(p -> crystal.recipvecs*p, points), q0, Σ)
-    Qkernel_ft = fft(Qkernel, (1, 2, 3))
+    # Generate nperbin uniformly spaced samples for each bin, including in
+    # padding bins (the number of which are determined by nghosts)
+    points = sample_binning(binning; nperbin, nghosts)
+    points_shifted = fftshift(points)
 
-    return SeparableUniformQBroadening(crystal, bin_fwhm, Qkernel_ft, points, interior_idcs, interior_idcs_ft, Ekernel)
-end
+    # Keep track of which points are in which bins.
+    bounds = [(-Δ/2, Δ/2) for Δ in Δs[1:3]]
+    interior_idcs = map(q0 -> find_points_in_bin(q0, directions, bounds, points), bincenters)
+    interior_idcs_ft = map(q0 -> find_points_in_bin(q0, directions, bounds, points_shifted), bincenters)
 
-function SeparableUniformQBroadening(binning::UniformBinning, bin_fwhm, Ekernel; extension=0.0, stepsize)
-    (; binspec, bincenters) = binning
-    (; crystal) = binspec
+    # Generate the convlution kernel.
+    binning_center = sum(bincenters)/length(bincenters)
+    qkernel = gaussian_md(map(p -> crystal.recipvecs*(p-binning_center), points), [0., 0, 0], Σ)
+    qkernel_ft = fft(qkernel, (1, 2, 3))
 
-    # Set up Gaussian kernel parameters
-    σ = bin_fwhm / 2√(2log(2))
-    Σ = if isa(σ, Number)
-        σ*I(3)
-    else
-        σ
-    end
-
-    points = sample_binning_and_surrounds(binning, stepsize; extension)
-
-    interior_idcs = map(q0 -> find_points_in_bin(q0, binspec, points), bincenters)
-    interior_idcs_ft = map(q0 -> find_points_in_bin(q0, binspec, fftshift(points)), bincenters)
-
-    Qkernel = gaussian_md(map(p -> crystal.recipvecs*p, points), crystal.recipvecs*binning_center(binning), Σ)
-    Qkernel_ft = fft(Qkernel, (1, 2, 3))
-
-    return SeparableUniformQBroadening(crystal, bin_fwhm, Qkernel_ft, points, interior_idcs, interior_idcs_ft, Ekernel)
+    return UniformQBroadening(binning, bin_fwhm, qkernel_ft, points, interior_idcs, interior_idcs_ft, ekernel)
 end
 
 
-function Base.show(io::IO, broadening_spec::SeparableUniformQBroadening)
-    println(io, "SeparableUniformQBroadening. FWHM: ")
-end
-
-
-
-function intensities_instrument(swt, q; energies, broadening_spec, kwargs...)
-    (; points, Qkernel, interior_idcs_ft, crystal, Ekernel) = broadening_spec
-
-    # Calculate intensities for all points in subsuming grid around bin.
-    res = Sunny.intensities(swt, map(p -> p + q, points[:]); energies, kernel=Ekernel, kwargs...)
-    data = reshape(res.data, (length(energies), size(points)...))
-
-    # Convolve along Q-axes only using an FFT. Unfortunately, energy is the fast
-    # axis. Can tweak later.
-    data_ft = fft(data, (2, 3, 4))
-    for i in axes(data_ft, 1)
-        data_ft[i,:,:,:] .*= Qkernel
-    end
-    data_conv = real.(ifft(data_ft, (2, 3, 4))) ./ prod(size(points))
-
-    # Integrate over those slices that lie within the bin and normalize to the
-    # number of samples.
-    slice = sum(data_conv[:, interior_idcs_ft], dims=(2,3,4)) ./ length(interior_idcs_ft)
-
-    return Sunny.Intensities(
-        crystal,
-        Sunny.QPoints([Sunny.Vec3(q)]),
-        collect(energies),
-        slice,
-    )
-end
-
-function intensities(swt, binning; broadening_spec, kwargs...)
-    (; points, Qkernel, interior_idcs, interior_idcs_ft, crystal, Ekernel) = broadening_spec
-    (; bincenters, Ecenters) = binning
+function intensities(swt, broadening_spec::UniformQBroadening; kwargs...)
+    (; points, qkernel, interior_idcs_ft, ekernel, binning) = broadening_spec
+    (; bincenters, Ecenters, crystal) = binning
 
     energies = Ecenters
+
     # Calculate intensities for all points in subsuming grid around bin.
-    res = Sunny.intensities(swt, points[:]; energies, kernel=Ekernel, kwargs...)
+    res = Sunny.intensities(swt, points[:]; energies, kernel=ekernel, kwargs...)
     data = reshape(res.data, (length(energies), size(points)...))
 
     # Convolve along Q-axes only using an FFT. Unfortunately, energy is the fast
     # axis. Can tweak later.
     data_ft = fft(data, (2, 3, 4))
     for i in axes(data_ft, 1)
-        data_ft[i,:,:,:] .*= Qkernel
+        data_ft[i,:,:,:] .*= qkernel
     end
     data_conv = real.(ifft(data_ft, (2, 3, 4))) ./ prod(size(points))
 
     # Integrate over those slices that lie within the bin and normalize to the
     # number of samples.
-    # slice = sum(data_conv[:, interior_idcs_ft], dims=(2,3,4)) ./ length(interior_idcs_ft)
-    # res = zeros(size(bincenters))
-    # for i in CartesianIndices(size(bincenters))  
-    #     # val = sum(data_conv[:, interior_idcs_ft[i]], dims=(2,3,4))
-    #     # println(size(val))
-    #     res[:,i] = sum(data_conv[:, interior_idcs_ft[i]], dims=(2,3,4))
-    # end
+    res = zeros(length(energies), size(bincenters)...)
+    for i in CartesianIndices(size(bincenters))  
+        res[:,i] = sum(data_conv[:, interior_idcs_ft[i]], dims=(2,3,4)) ./ length(interior_idcs_ft[i])
+    end
 
-    # res = zeros(length(energies), size(bincenters)...)
-    # for i in CartesianIndices(bincenters)
-    #     # res[:,i] .= sum(data_conv[:, interior_idcs_ft[i]]) ./ length(interior_idcs_ft)
-    #     res[:,i] .= sum(data[:, interior_idcs[i]]) ./ length(interior_idcs_ft)
-    # end
-
-
-    # return Sunny.Intensities(
-    #     crystal,
-    #     Sunny.QPoints([Sunny.Vec3(q)]),
-    #     collect(energies),
-    #     slice,
-    # )
-    return data_conv
+    return res
 end

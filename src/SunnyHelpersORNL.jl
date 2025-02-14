@@ -18,7 +18,7 @@ include("binning.jl")
 export BinSpec, sample_bin_uniform_abs, sample_bin_uniform_rlu, sample_bin_mc, find_points_in_bin, uniform_grid_from_bin
 
 include("convolution.jl")
-export energy_resolution_kernel, SeparableUniformQBroadening, intensities_instrument
+export energy_resolution_kernel, UniformQBroadening, intensities
 
 
 ################################################################################
