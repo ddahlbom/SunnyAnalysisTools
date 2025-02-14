@@ -118,8 +118,15 @@ end
 
 function sample_binning_and_surrounds(binning::UniformBinning, stepsize; extension=1.0)
     (; binspec, Δs, bincenters) = binning
-    (; directions) = binspec
-    uniform_sampling_of_bin(binning_center(binning), directions, Δs[1:3] .* size(bincenters) .+ extension*ones(3), stepsize)
+    (; directions, crystal) = binspec
+    (; recipvecs) = crystal
+
+    bincenter_abs = recipvecs*binning_center(binning)
+    directions_abs = recipvecs*directions
+
+    points = uniform_sampling_of_bin(bincenter_abs, directions_abs, Δs[1:3] .* size(bincenters) .+ extension*ones(3), stepsize)
+
+    return map(p -> inv(recipvecs)*p, points)
 end
 
 

@@ -80,12 +80,10 @@ function SeparableUniformQBroadening(binning::UniformBinning, bin_fwhm, Ekernel;
     end
 
     points = sample_binning_and_surrounds(binning, stepsize; extension)
-    interior_idcs = []
-    interior_idcs_ft = []
-    for q0 in bincenters
-        push!(interior_idcs, find_points_in_bin(q0, binspec, points))
-        push!(interior_idcs_ft, find_points_in_bin(q0, binspec, fftshift(points)))
-    end
+
+    interior_idcs = map(q0 -> find_points_in_bin(q0, binspec, points), bincenters)
+    interior_idcs_ft = map(q0 -> find_points_in_bin(q0, binspec, fftshift(points)), bincenters)
+
     Qkernel = gaussian_md(map(p -> crystal.recipvecs*p, points), crystal.recipvecs*binning_center(binning), Σ)
     Qkernel_ft = fft(Qkernel, (1, 2, 3))
 
@@ -127,14 +125,13 @@ function intensities_instrument(swt, q; energies, broadening_spec, kwargs...)
 end
 
 function intensities(swt, binning; broadening_spec, kwargs...)
-    (; points, Qkernel, interior_idcs_ft, crystal, Ekernel) = broadening_spec
+    (; points, Qkernel, interior_idcs, interior_idcs_ft, crystal, Ekernel) = broadening_spec
     (; bincenters, Ecenters) = binning
 
     energies = Ecenters
     # Calculate intensities for all points in subsuming grid around bin.
     res = Sunny.intensities(swt, points[:]; energies, kernel=Ekernel, kwargs...)
     data = reshape(res.data, (length(energies), size(points)...))
-    println(size(data))
 
     # Convolve along Q-axes only using an FFT. Unfortunately, energy is the fast
     # axis. Can tweak later.
@@ -147,11 +144,18 @@ function intensities(swt, binning; broadening_spec, kwargs...)
     # Integrate over those slices that lie within the bin and normalize to the
     # number of samples.
     # slice = sum(data_conv[:, interior_idcs_ft], dims=(2,3,4)) ./ length(interior_idcs_ft)
-    res = zeros(size(interior_idcs_ft))
-    for i in CartesianIndices(bincenters)  
-        val = sum(data_conv[:, interior_idcs[i]])
-        # res[:,I] = sum(data_conv[:, interior_idcs_ft[i]...], dims=(2,3,4))
-    end
+    # res = zeros(size(bincenters))
+    # for i in CartesianIndices(size(bincenters))  
+    #     # val = sum(data_conv[:, interior_idcs_ft[i]], dims=(2,3,4))
+    #     # println(size(val))
+    #     res[:,i] = sum(data_conv[:, interior_idcs_ft[i]], dims=(2,3,4))
+    # end
+
+    # res = zeros(length(energies), size(bincenters)...)
+    # for i in CartesianIndices(bincenters)
+    #     # res[:,i] .= sum(data_conv[:, interior_idcs_ft[i]]) ./ length(interior_idcs_ft)
+    #     res[:,i] .= sum(data[:, interior_idcs[i]]) ./ length(interior_idcs_ft)
+    # end
 
 
     # return Sunny.Intensities(
@@ -160,5 +164,5 @@ function intensities(swt, binning; broadening_spec, kwargs...)
     #     collect(energies),
     #     slice,
     # )
-    return res
+    return data_conv
 end
