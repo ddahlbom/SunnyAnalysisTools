@@ -128,11 +128,13 @@ end
 
 function intensities(swt, binning; broadening_spec, kwargs...)
     (; points, Qkernel, interior_idcs_ft, crystal, Ekernel) = broadening_spec
-    (; bincenters, Ecenters, Δs) = binning
+    (; bincenters, Ecenters) = binning
 
+    energies = Ecenters
     # Calculate intensities for all points in subsuming grid around bin.
-    res = Sunny.intensities(swt, bincenters; energies, kernel=Ekernel, kwargs...)
-    data = reshape(res.data, (length(energies), size(bincenters)...))
+    res = Sunny.intensities(swt, points[:]; energies, kernel=Ekernel, kwargs...)
+    data = reshape(res.data, (length(energies), size(points)...))
+    println(size(data))
 
     # Convolve along Q-axes only using an FFT. Unfortunately, energy is the fast
     # axis. Can tweak later.
@@ -144,12 +146,19 @@ function intensities(swt, binning; broadening_spec, kwargs...)
 
     # Integrate over those slices that lie within the bin and normalize to the
     # number of samples.
-    slice = sum(data_conv[:, interior_idcs_ft], dims=(2,3,4)) ./ length(interior_idcs_ft)
+    # slice = sum(data_conv[:, interior_idcs_ft], dims=(2,3,4)) ./ length(interior_idcs_ft)
+    res = zeros(size(interior_idcs_ft))
+    for i in CartesianIndices(bincenters)  
+        val = sum(data_conv[:, interior_idcs[i]])
+        # res[:,I] = sum(data_conv[:, interior_idcs_ft[i]...], dims=(2,3,4))
+    end
 
-    return Sunny.Intensities(
-        crystal,
-        Sunny.QPoints([Sunny.Vec3(q)]),
-        collect(energies),
-        slice,
-    )
+
+    # return Sunny.Intensities(
+    #     crystal,
+    #     Sunny.QPoints([Sunny.Vec3(q)]),
+    #     collect(energies),
+    #     slice,
+    # )
+    return res
 end
