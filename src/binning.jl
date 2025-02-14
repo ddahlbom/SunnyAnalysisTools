@@ -29,18 +29,18 @@ struct UniformBinning <: AbstractBinning
     binspec    :: BinSpec
     bincenters :: Array{Vector{Float64}, 3}
     Ecenters   :: Vector{Float64}
-    ΔE         :: Float64
+    Δs         :: Vector{Float64}
 end 
 
 function UniformBinning(crystal, directions, Us, Vs, Ws, Es)
 
     # Ensure that spacing is uniform and make a BinSpec on these uniform values.
-    ΔU, ΔV, ΔW, ΔE = map([Us, Vs, Ws, Es]) do vals
+    Δs = map([Us, Vs, Ws, Es]) do vals
         Δs = vals[2:end] .- vals[1:end-1]
         @assert allequal(Δs) "Step sizes must all be equal for a UniformBinning"
         Δs[1]
     end
-    binspec = BinSpec(crystal, directions, ΔU, ΔV, ΔW, ΔE)
+    binspec = BinSpec(crystal, directions, Δs...)
 
     # If only bounds are given (as opposed to a list) determine center point.
     Us, Vs, Ws, Es = map([Us, Vs, Ws, Es]) do vals
@@ -54,7 +54,7 @@ function UniformBinning(crystal, directions, Us, Vs, Ws, Es)
     # Assemble bincenters in RLU.
     bincenters = [directions*[U, V, W] for U in Us, V in Vs, W in Ws]
 
-    return UniformBinning(binspec, bincenters, Es, ΔE)
+    return UniformBinning(binspec, bincenters, Es, Δs)
 end
 
 function Base.show(io::IO, binning::UniformBinning)
@@ -98,12 +98,10 @@ corners_of_parallelepiped(bi::BinSpec; offset=Sunny.Vec3(0, 0, 0)) = corners_of_
 function center_of_binning(binning::UniformBinning)
 end
 
-function sample_binning_and_surrounds(binning::UniformBinning, σ)
-    (; crystal, directions, bounds) = bininfo
-    (; recipvecs) = crystal
+function base_and_edges_of_binning(binning::UniformBinning)
+end
 
-    # Determine bounds of parallelpiped determined by scaled eigenvectors of σ
-    # matrix. Use these values to determine how large a box to make.
+function suggest_extension(σ; sampdensity)
     vals, vecs = eigen(σ)
     bounds_σ = [(0, val) for val in vals]
     extrema_σ = [extrema([corner[i] for corner in corners_of_parallelepiped(vecs, bounds_σ)]) for i in 1:3]
@@ -111,25 +109,18 @@ function sample_binning_and_surrounds(binning::UniformBinning, σ)
 
     # Set the sampling density for points per some number of sigmas.
     stepsize = 3minimum(σs)/sampdensity
-
-    # Make oversized set of points to fill integration region.
-
-    # corners_bin = map(point -> recipvecs*point, corners_of_parallelepiped(directions, bounds))
-    extrema_abs = [extrema([corner[i] for corner in corners_bin]) for i in 1:3]
-    extrema_abs = map(zip(extrema_abs, σs)) do (extrema, σ)
-        (extrema[1] - nsigmas*σ, extrema[2] + nsigmas*σ)
-    end
-    na, nb, nc = [floor(Int64, make_odd_up(round(Int64, abs(hi - lo)/stepsize)) / 2) for (hi, lo) in extrema_abs]
-    grid_abs = [stepsize * [a, b, c] for a in -na:na, b in -nb:nb, c in -nc:nc] 
-
-    # Convert into coordinates with respect to direction vectors and filter out
-    # points outside of integration region.
-    points_local_frame = [inv(directions)*inv(recipvecs)*q for q in grid_abs]
-
-    # Add back bin center and convert to RLU before returning.
-    return [Sunny.Vec3(q) + directions*point for point in points_local_frame]
 end
 
+function binning_center(binning)
+    (; bincenters) = binning
+    return (bincenters[1] + bincenters[end])/2
+end
+
+function sample_binning_and_surrounds(binning::UniformBinning, stepsize; extension=1.0)
+    (; binspec, Δs, bincenters) = binning
+    (; directions) = binspec
+    uniform_sampling_of_bin(binning_center(binning), directions, Δs[1:3] .* size(bincenters) .+ extension*ones(3), stepsize)
+end
 
 
 function sample_bin_and_surrounds(q, bininfo::BinSpec, sigma; nsigmas=5, sampdensity=1)
@@ -211,16 +202,14 @@ end
 Sample points inside the bin uniformly in RLU. `linear_distance` is
 given in RLU.
 """
-function sample_bin_uniform_rlu(q, bininfo::BinSpec; linear_distance=1.0)
-    (; crystal, directions, bounds) = bininfo
-    (; recipvecs) = crystal
-    q = Sunny.Vec3(q)
-    n1, n2, n3 = map(zip(bounds, eachcol(directions))) do (bounds, direction)
-        distance = norm(recipvecs * (bounds[2]*direction - bounds[1]*direction))
-        floor(Int64, make_odd_down(round(Int64, distance / linear_distance)) / 2)
+function uniform_sampling_of_bin(bincenter, directions, scales, spacing)
+    q = Sunny.Vec3(bincenter)
+    n1, n2, n3 = map(zip(scales, eachcol(directions))) do (scale, direction)
+        distance = norm(scale*direction)
+        floor(Int64, make_odd_down(round(Int64, distance / spacing)) / 2)
     end
-    unit_directions = hcat([inv(recipvecs) * linear_distance * normalize(recipvecs*direction) for direction in eachcol(directions)]...)
-    return [q + unit_directions * Sunny.Vec3(a, b, c) for a in -n1:n1, b in -n2:n2, c in -n3:n3][:]
+    unit_directions = hcat([spacing * normalize(direction) for direction in eachcol(directions)]...)
+    return [q + unit_directions * Sunny.Vec3(a, b, c) for a in -n1:n1, b in -n2:n2, c in -n3:n3]
 end
 
 

@@ -49,7 +49,7 @@ function SunnyHelpersORNL.visualize_bin(q_target, bi, spec)
 end
 
 function SunnyHelpersORNL.visualize_binning(binning::SunnyHelpersORNL.UniformBinning; labframe=false)
-    fig = Figure(size=(1800, 400))
+    fig = Figure()
     (; binspec, bincenters) = binning
     (; crystal, directions, bounds) = binspec
 
