@@ -1,91 +1,101 @@
+################################################################################
+# Types
+################################################################################
+
 abstract type AbstractBinning end
 
 struct UniformBinning <: AbstractBinning
     crystal    :: Sunny.Crystal
     directions :: Sunny.Mat3        # Definition of scattering coordinates (relative to RLU)
 
-    bincenters :: Array{Vector{Float64}, 3}
-    Ecenters   :: Vector{Float64}
+    qcenters   :: Array{Vector{Float64}, 3}
+    ecenters   :: Vector{Float64}
     Δs         :: Vector{Float64}
 
-    Ns         :: NTuple{3, Int64} 
-    base         :: Sunny.Vec3 
+    qbase       :: Sunny.Vec3 
+
+    function UniformBinning(crystal, directions, Us, Vs, Ws, Es)
+        # Ensure that spacing is uniform 
+        Δs = map([Us, Vs, Ws, Es]) do vals
+            Δs = vals[2:end] .- vals[1:end-1]
+            @assert allequal(Δs) "Step sizes must all be equal for a UniformBinning"
+            Δs[1]
+        end
+
+        # If only bounds are given (as opposed to a list) determine center point.
+        Us, Vs, Ws, Es = map([Us, Vs, Ws, Es]) do vals
+            if length(vals) == 2
+                [(vals[2]+vals[1])/2]
+            else
+                vals
+            end
+        end
+
+        # Assemble bincenters in RLU
+        qcenters = [directions*[U, V, W] for U in Us, V in Vs, W in Ws]
+        qbase = qcenters[1,1,1] .- 0.5*(directions*Δs[1:3])
+
+        new(crystal, directions, qcenters, Es, Δs, qbase)
+    end
 end 
 
-function UniformBinning(crystal, directions, Us, Vs, Ws, Es)
-
-    # Ensure that spacing is uniform and make a BinSpec on these uniform values.
-    Δs = map([Us, Vs, Ws, Es]) do vals
-        Δs = vals[2:end] .- vals[1:end-1]
-        @assert allequal(Δs) "Step sizes must all be equal for a UniformBinning"
-        Δs[1]
-    end
-
-    # If only bounds are given (as opposed to a list) determine center point.
-    Us, Vs, Ws, Es = map([Us, Vs, Ws, Es]) do vals
-        if length(vals) == 2
-            [(vals[2]+vals[1])/2]
-        else
-            vals
-        end
-    end
-
-    # Assemble bincenters in RLU.
-    bincenters = [directions*[U, V, W] for U in Us, V in Vs, W in Ws]
-    base = bincenters[1,1,1] .- 0.5*(directions*Δs[1:3])
-    Ns = size(bincenters)
-
-    return UniformBinning(crystal, directions, bincenters, Es, Δs, Ns, base)
-end
-
-
 function Base.show(io::IO, binning::UniformBinning)
-    (; bincenters, Δs) = binning
+    (; qcenters, Δs, crystal, directions) = binning
     println(io, "UniformBinning")
-    nH, nK, nL = size(bincenters)
+    nH, nK, nL = size(qcenters)
 
+    println(io, crystal)
+    println(io, "Directions: ", directions) # Make this nicer
     print(io, "H: ")
+
+    # Make this nicer with select dim or similar
     if nH == 1
-        println(io, "$(bincenters[1,1,1][1]), ΔH=$(round(Δs[1], digits=3))")
+        println(io, "$(qcenters[1,1,1][1]), ΔH=$(round(Δs[1], digits=3))")
     else
-        println(io, "$(bincenters[1,1,1][1])...$(bincenters[end,1,1][1]), ΔH=$(Δs[1])")
+        println(io, "$(qcenters[1,1,1][1])...$(qcenters[end,1,1][1]), ΔH=$(Δs[1])")
     end
     print(io, "K: ")
     if nK == 1
-        println(io, "$(bincenters[1,1,1][2]), ΔK=$(Δs[2])")
+        println(io, "$(qcenters[1,1,1][2]), ΔK=$(Δs[2])")
     else
-        println(io, "$(bincenters[1,1,1][2])...$(bincenters[1,end,1][2]), ΔH=$(Δs[2])")
+        println(io, "$(qcenters[1,1,1][2])...$(qcenters[1,end,1][2]), ΔH=$(Δs[2])")
     end
     print(io, "L: ")
     if nL == 1
-        println(io, "$(bincenters[1,1,1][3]), ΔL=$(round(Δs[3], digits=3))")
+        println(io, "$(qcenters[1,1,1][3]), ΔL=$(round(Δs[3], digits=3))")
     else
-        println(io, "$(bincenters[1,1,1][3])...$(bincenters[end,1,1][3]), ΔH=$(round(Δs[3], digits=3))")
+        println(io, "$(qcenters[1,1,1][3])...$(qcenters[end,1,1][3]), ΔH=$(round(Δs[3], digits=3))")
     end
 
 end
 
+################################################################################
+# Methods 
+################################################################################
 
-function sample_binning(binning::UniformBinning; nperbin=1, nghosts=0)
-    (; crystal, directions, Δs, Ns, base) = binning
+function sample_binning(binning::UniformBinning; nperbin=1, nghosts=0, nperebin=1)
+    (; crystal, directions, Δs, qcenters, qbase, ecenters) = binning
     (; recipvecs) = crystal
     nperbins = isa(nperbin, Number) ? nperbin * ones(3) : nperbin
     nghosts = isa(nghosts, Number) ? nghosts * ones(3) : nghosts
 
+    # Sample q points
     directions_abs = recipvecs*directions
     increments = directions_abs * diagm(Δs[1:3] ./ nperbins)
-
-    # Determine the number of steps to take along each increment, relative to the base point.
-    tops = [N+nghosts-1 for (N, nghosts) in zip(Ns, nghosts)] .* nperbins
+    tops = [N+nghosts-1 for (N, nghosts) in zip(size(qcenters), nghosts)] .* nperbins
     bottoms = [-nghosts for nghosts in nghosts] .* nperbins
     bounds = [b:t for (b, t) in zip(bottoms,tops)]
-
-
     offset = inv(recipvecs)*increments*[0.5, 0.5, 0.5] 
+    qpoints = [qbase + offset + inv(recipvecs)*increments*[Na, Nb, Nc] for Na in bounds[1], Nb in bounds[2], Nc in bounds[3]]
 
-    points = [base + offset + inv(recipvecs)*increments*[Na, Nb, Nc] for Na in bounds[1], Nb in bounds[2], Nc in bounds[3]]
+    # Sample energies
+    ΔE = Δs[4]
+    increment = Δs[4] / nperebin
+    qbase = ecenters[1] - ΔE/2
+    offset = increment*0.5
+    epoints = [qbase + offset + increment*N for N in 0:length(ecenters)-1]
 
-    return points 
+    return (; qpoints, epoints)
 end
 
 

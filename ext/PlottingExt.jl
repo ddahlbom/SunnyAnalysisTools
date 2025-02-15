@@ -50,12 +50,12 @@ end
 
 function SunnyHelpersORNL.visualize_binning(binning::SunnyHelpersORNL.UniformBinning; labframe=false)
     fig = Figure()
-    (; crystal, directions, Δs, bincenters) = binning
+    (; crystal, directions, Δs, qcenters) = binning
     bounds = [(-Δ/2, Δ/2) for Δ in Δs[1:3]]
 
     ax1 = LScene(fig[1,1])
 
-    for q in bincenters
+    for q in qcenters
         draw_boundary!(ax1, q, directions, bounds; recipvecs = labframe ? crystal.recipvecs : nothing)
     end
 
