@@ -1,6 +1,6 @@
-using SunnyHelpersORNL
+using SunnyAnalysisTools
 using Test
 
-@testset "SunnyHelpersORNL.jl" begin
+@testset "SunnyAnalysisTools.jl" begin
     # Write your tests here.
 end
