@@ -1,12 +1,12 @@
 module PlottingExt
 
-using SunnyHelpersORNL, GLMakie, FFTW
+using SunnyAnalysisTools, GLMakie, FFTW
 
 
 # Draw a bounding box for the a set of parameters that would be given to the bin sampling functions.
 # If recipvecs keyword given a value, then draws boundary in absolute units (not RLU).
-function SunnyHelpersORNL.draw_boundary!(ax, q, directions, bounds; color=:black, linewidth=2.0, recipvecs=nothing, kwargs...)
-    corners = GLMakie.Point3f.(SunnyHelpersORNL.corners_of_parallelepiped(directions, bounds; offset=q))
+function SunnyAnalysisTools.draw_boundary!(ax, q, directions, bounds; color=:black, linewidth=2.0, recipvecs=nothing, kwargs...)
+    corners = GLMakie.Point3f.(SunnyAnalysisTools.corners_of_parallelepiped(directions, bounds; offset=q))
     corners = !isnothing(recipvecs) ? map(q -> recipvecs*q, corners) : corners
     boundaries = [
         [corners[1], corners[2], corners[4], corners[3], corners[1]],
@@ -19,7 +19,7 @@ function SunnyHelpersORNL.draw_boundary!(ax, q, directions, bounds; color=:black
     end
 end
 
-function SunnyHelpersORNL.visualize_bin(q_target, bi, spec)
+function SunnyAnalysisTools.visualize_convolution(q_target, bi, spec)
     fig = Figure(size=(1800, 400))
     (; crystal) = bi
 
@@ -48,7 +48,7 @@ function SunnyHelpersORNL.visualize_bin(q_target, bi, spec)
     return fig
 end
 
-function SunnyHelpersORNL.visualize_binning(binning::SunnyHelpersORNL.UniformBinning; labframe=false)
+function SunnyAnalysisTools.visualize_binning(binning::SunnyAnalysisTools.UniformBinning; labframe=false)
     fig = Figure()
     (; crystal, directions, Δs, qcenters) = binning
     bounds = [(-Δ/2, Δ/2) for Δ in Δs[1:3]]
@@ -61,5 +61,6 @@ function SunnyHelpersORNL.visualize_binning(binning::SunnyHelpersORNL.UniformBin
 
     return fig
 end
+
 
 end

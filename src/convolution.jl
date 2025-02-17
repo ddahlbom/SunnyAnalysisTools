@@ -44,7 +44,7 @@ struct UniformQBroadening <: AbstractConvolution
 end
 
 
-function UniformQBroadening(binning::UniformBinning, bin_fwhm, ekernel; nperbin, nghosts)
+function UniformQBroadening(binning::UniformBinning, bin_fwhm, ekernel; nperbin, nghosts, nperebin=1)
     (; crystal, Δs, qcenters, ecenters, directions) = binning
 
     # Convert broadening parameters to a covariance matrix.
@@ -75,7 +75,7 @@ function UniformQBroadening(binning::UniformBinning, bin_fwhm, ekernel; nperbin,
 end
 
 
-function intensities(swt, broadening_spec::UniformQBroadening; kwargs...)
+function intensities_binned(swt, broadening_spec::UniformQBroadening; kwargs...)
     (; qpoints, epoints, qidcs, eidcs, qkernel, ekernel, binning) = broadening_spec
     (; qcenters, ecenters) = binning
 

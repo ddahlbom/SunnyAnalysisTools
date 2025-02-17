@@ -1,4 +1,4 @@
-module SunnyHelpersORNL
+module SunnyAnalysisTools
 
 import Sunny
 using LinearAlgebra, Random, LsqFit, FFTW
@@ -18,7 +18,7 @@ include("binning.jl")
 export UniformBinning
 
 include("convolution.jl")
-export energy_resolution_kernel, UniformQBroadening, intensities
+export energy_resolution_kernel, UniformQBroadening, intensities_binned
 
 
 ################################################################################
