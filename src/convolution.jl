@@ -84,23 +84,22 @@ function intensities(swt, broadening_spec::UniformQBroadening; kwargs...)
     data = reshape(res.data, (length(epoints), size(qpoints)...))
 
     # Convolve along Q-axes only using an FFT. Unfortunately, energy is the fast
-    # axis. Can tweak later.
+    # axis. 
     data_ft = fft(data, (2, 3, 4))
     for i in axes(data_ft, 1)
         data_ft[i,:,:,:] .*= qkernel
     end
     data_conv = real.(ifft(data_ft, (2, 3, 4))) ./ prod(size(qpoints))
 
-    # Integrate over those slices that lie within the bin and normalize to the
-    # number of samples. (Simplify this, reduce memory usage.)
-    resQ = zeros(length(epoints), size(qcenters)...)
-    resQE = zeros(length(ecenters), size(qcenters)...)
-    for i in CartesianIndices(qcenters)
-        resQ[:,i] = sum(data_conv[:, qidcs[i]], dims=(2,3,4)) ./ length(qidcs[i])
-        for j in eachindex(ecenters)
-            resQE[j, i] = sum(resQ[eidcs[j],i], dims=(1,)) / length(eidcs[j])
+    # Sum over samples that lie within each bin and normalize by number of
+    # samples.
+    res = zeros(length(ecenters), size(qcenters)...)
+    for i in CartesianIndices(qcenters), j in eachindex(ecenters)
+        for (ei, qi) in Iterators.product(eidcs[j], qidcs[i])
+            res[j, i] += data_conv[ei,qi]
         end
+        res[j, i] /= length(eidcs[j]) * length(qidcs[i])
     end
 
-    return resQE
+    return res
 end
