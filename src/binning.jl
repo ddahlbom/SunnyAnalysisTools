@@ -82,7 +82,7 @@ function sample_binning(binning::UniformBinning; nperbin=1, nghosts=0, nperebin=
     # Sample q points
     directions_abs = recipvecs*directions
     increments = directions_abs * diagm(Δs[1:3] ./ nperbins)
-    tops = [N+nghosts-1 for (N, nghosts) in zip(size(qcenters), nghosts)] .* nperbins
+    tops = [N+nghosts for (N, nghosts) in zip([size(qcenters)...], nghosts)] .* nperbins .- 1
     bottoms = [-nghosts for nghosts in nghosts] .* nperbins
     bounds = [b:t for (b, t) in zip(bottoms,tops)]
     offset = inv(recipvecs)*increments*[0.5, 0.5, 0.5] 
