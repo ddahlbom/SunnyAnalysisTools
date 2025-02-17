@@ -18,7 +18,7 @@ struct UniformBinning <: AbstractBinning
         # Ensure that spacing is uniform 
         Δs = map([Us, Vs, Ws, Es]) do vals
             Δs = vals[2:end] .- vals[1:end-1]
-            @assert allequal(Δs) "Step sizes must all be equal for a UniformBinning"
+            @assert all(Δ -> Δ ≈ Δs[1], Δs) "Step sizes must all be equal for a UniformBinning"
             Δs[1]
         end
 

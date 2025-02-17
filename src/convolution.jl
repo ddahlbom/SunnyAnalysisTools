@@ -27,38 +27,67 @@ end
 # An AbstractConvolution should provide full specifications for how to treat
 # intensities calculations from Sunny, including procedures for both energy
 # and momentum convolution.
-abstract type AbstractConvolution end
+abstract type AbstractConvolutionSpec end
 
 # Add IFFT plan
-struct UniformQBroadening <: AbstractConvolution
+struct UniformQBroadening <: AbstractConvolutionSpec
     binning  :: UniformBinning
 
-    qfwhm     :: Union{Float64, Array{Float64, 2}}   # Note needed after construction, but useful to be able to report
+    # Q-broadening
+    qfwhm     :: Union{Float64, Array{Float64, 2}}   # Kernel FWHM. Not needed after construction, but useful as a record. 
     qkernel   :: Array{ComplexF64, 3}                # Fourier trasnformed convolution kernel
     qpoints   :: Array{Sunny.Vec3, 3}                # Sampled points in momentum space
-    epoints   :: Vector{Float64}                # Sampled points in momentum space
-    qidcs    
-    eidcs
+    qidcs                                            # Indices corresponding to interior of q bins. Same dimensions as binning.qcenters.
 
-    ekernel  :: Sunny.AbstractBroadening
+    # E-broadening
+    ekernel   :: Sunny.AbstractBroadening            # Sunny broadening to be passed to `Sunny.intensities`
+    epoints   :: Vector{Float64}                     # Sampled points in momentum space
+    eidcs                                            # Indices corresponding to interior of energy bins. Same dimensions as binning.ecenters.
 end
 
 
-function UniformQBroadening(binning::UniformBinning, bin_fwhm, ekernel; nperbin, nghosts, nperebin=1)
+"""
+    UniformQBroadening(binning::UniformBinning, qfwhm, ekernel; nperbin, nghosts, nperebin=1)
+
+Generates an intensities calculation specification that performs convolution
+over both energy and inverse Anstroms dimensions. The convolution kernel is
+Gaussian and separable, i.e., the energy and spatial directions are
+uncorrelated. 
+
+- `qfwhm` specifies the spatial convolution kernel. It may be either a single
+  number or a matrix. Units are inverse Angstrom.
+- `ekernel` is a Sunny energy broadening kernel, e.g. `gaussian(fwhm)`.
+- `nperbin` determines how many samples are included per linear dimension of a
+  bin. This may be either a single number, or three numbers (one for each linear
+  dimension).
+- `nghosts` determines a number of padding bins to be included about the given
+  binning scheme. These should be included if the size of the q-convolution
+  kernel is large relative to the bin size.
+- `nperebin` determines the number of samples to be included along the energy
+  dimension of each bin. By default just the bin center is used.
+
+"""
+function UniformQBroadening(binning::UniformBinning, qfwhm, ekernel; nperbin, nghosts, nperebin=1)
     (; crystal, Δs, qcenters, ecenters, directions) = binning
 
     # Convert broadening parameters to a covariance matrix.
-    σ = bin_fwhm / 2√(2log(2))
+    σ = qfwhm / 2√(2log(2))
     Σ = isa(σ, Number) ? σ*I(3) : σ
 
     # Generate nperbin uniformly spaced samples for each bin, including in
-    # padding bins (the number of which are determined by nghosts)
+    # padding bins.
     (; qpoints, epoints) = sample_binning(binning; nperbin, nghosts)
 
-    # Keep track of which points are in which q-bins. Note that the indices need to be FFT shifted.
+    # Keep track of which sample points are in which q-bins. *Note that the
+    # indices need to be FFT shifted.*
     bounds = [(-Δ/2, Δ/2) for Δ in Δs[1:3]]
     points_shifted = fftshift(qpoints)
     qidcs = map(q0 -> find_points_in_bin(q0, directions, bounds, points_shifted), qcenters)
+
+    # Calculate the convlution kernel.
+    binning_center = sum(qcenters)/length(qcenters)
+    qkernel = gaussian_md(map(p -> crystal.recipvecs*(p-binning_center), qpoints), [0., 0, 0], Σ)
+    qkernel = fft(qkernel, (1, 2, 3))
 
     # Binning indices for energy axis.
     ΔE = Δs[4]
@@ -66,40 +95,5 @@ function UniformQBroadening(binning::UniformBinning, bin_fwhm, ekernel; nperbin,
         findall(E -> abs(E0 - E) < ΔE/2, epoints)
     end
 
-    # Generate the convlution kernel.
-    binning_center = sum(qcenters)/length(qcenters)
-    qkernel = gaussian_md(map(p -> crystal.recipvecs*(p-binning_center), qpoints), [0., 0, 0], Σ)
-    qkernel_ft = fft(qkernel, (1, 2, 3))
-
-    return UniformQBroadening(binning, bin_fwhm, qkernel_ft, qpoints, epoints, qidcs, eidcs, ekernel)
-end
-
-
-function intensities_binned(swt, broadening_spec::UniformQBroadening; kwargs...)
-    (; qpoints, epoints, qidcs, eidcs, qkernel, ekernel, binning) = broadening_spec
-    (; qcenters, ecenters) = binning
-
-    # Calculate intensities for all points in subsuming grid around bin.
-    res = Sunny.intensities(swt, qpoints[:]; energies=epoints, kernel=ekernel, kwargs...)
-    data = reshape(res.data, (length(epoints), size(qpoints)...))
-
-    # Convolve along Q-axes only using an FFT. Unfortunately, energy is the fast
-    # axis. 
-    data_ft = fft(data, (2, 3, 4))
-    for i in axes(data_ft, 1)
-        data_ft[i,:,:,:] .*= qkernel
-    end
-    data_conv = real.(ifft(data_ft, (2, 3, 4))) ./ prod(size(qpoints))
-
-    # Sum over samples that lie within each bin and normalize by number of
-    # samples.
-    res = zeros(length(ecenters), size(qcenters)...)
-    for i in CartesianIndices(qcenters), j in eachindex(ecenters)
-        for (ei, qi) in Iterators.product(eidcs[j], qidcs[i])
-            res[j, i] += data_conv[ei,qi]
-        end
-        res[j, i] /= length(eidcs[j]) * length(qidcs[i])
-    end
-
-    return res
+    return UniformQBroadening(binning, qfwhm, qkernel, qpoints, qidcs, ekernel, epoints, eidcs)
 end

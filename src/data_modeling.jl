@@ -1,3 +1,5 @@
+abstract type AbstractDataModel end
+
 function gaussian_mixture_model(x, p, N=4)
     g(x, μ, σ) = (1/(σ *√(2π)))*exp.(-0.5((x - μ)/σ)^2)
     offset = p[end]

@@ -8,7 +8,7 @@ using LinearAlgebra, Random, LsqFit, FFTW
 ################################################################################
 include("util.jl")
 
-include("instrument_configs.jl")
+include("instruments.jl")
 export CNCSSpec
 
 include("data_modeling.jl")
@@ -18,7 +18,16 @@ include("binning.jl")
 export UniformBinning
 
 include("convolution.jl")
-export energy_resolution_kernel, UniformQBroadening, intensities_binned
+export energy_resolution_kernel, UniformQBroadening
+
+include("observations.jl")
+export Observation
+
+include("intensities.jl")
+export intensities_binned
+
+include("parsing.jl")
+export read_shiver_ascii
 
 
 ################################################################################
@@ -29,7 +38,7 @@ function is_pkg_loaded(pkg::Symbol)
 end
 
 extension_fns = [
-    :GLMakie => [:draw_boundary!, :visualize_bin, :visualize_binning],
+    :GLMakie => [:draw_boundary!, :visualize_binning],
 ]
 
 for (_pkg, fns) in extension_fns
