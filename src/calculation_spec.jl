@@ -27,10 +27,10 @@ end
 # An AbstractConvolution should provide full specifications for how to treat
 # intensities calculations from Sunny, including procedures for both energy
 # and momentum convolution.
-abstract type AbstractConvolutionSpec end
+abstract type AbstractIntensitiesCalculationSpec end
 
 # Add IFFT plan
-struct UniformQBroadening <: AbstractConvolutionSpec
+struct StationaryQConvolution <: AbstractIntensitiesCalculationSpec
     binning  :: UniformBinning
 
     # Q-broadening
@@ -67,7 +67,7 @@ uncorrelated.
   dimension of each bin. By default just the bin center is used.
 
 """
-function UniformQBroadening(binning::UniformBinning, qfwhm, ekernel; nperbin, nghosts, nperebin=1)
+function StationaryQConvolution(binning::UniformBinning, qfwhm, ekernel; nperbin, nghosts, nperebin=1)
     (; crystal, Δs, qcenters, ecenters, directions) = binning
 
     # Convert broadening parameters to a covariance matrix.
@@ -76,7 +76,7 @@ function UniformQBroadening(binning::UniformBinning, qfwhm, ekernel; nperbin, ng
 
     # Generate nperbin uniformly spaced samples for each bin, including in
     # padding bins.
-    (; qpoints, epoints) = sample_binning(binning; nperbin, nghosts)
+    (; qpoints, epoints) = sample_binning(binning; nperbin, nghosts, nperebin)
 
     # Keep track of which sample points are in which q-bins. *Note that the
     # indices need to be FFT shifted.*
@@ -84,7 +84,7 @@ function UniformQBroadening(binning::UniformBinning, qfwhm, ekernel; nperbin, ng
     points_shifted = fftshift(qpoints)
     qidcs = map(q0 -> find_points_in_bin(q0, directions, bounds, points_shifted), qcenters)
 
-    # Calculate the convlution kernel.
+    # Calculate the q convolution kernel.
     binning_center = sum(qcenters)/length(qcenters)
     qkernel = gaussian_md(map(p -> crystal.recipvecs*(p-binning_center), qpoints), [0., 0, 0], Σ)
     qkernel = fft(qkernel, (1, 2, 3))
@@ -95,5 +95,47 @@ function UniformQBroadening(binning::UniformBinning, qfwhm, ekernel; nperbin, ng
         findall(E -> abs(E0 - E) < ΔE/2, epoints)
     end
 
-    return UniformQBroadening(binning, qfwhm, qkernel, qpoints, qidcs, ekernel, epoints, eidcs)
+    return StationaryQConvolution(binning, qfwhm, qkernel, qpoints, qidcs, ekernel, epoints, eidcs)
+end
+
+################################################################################
+# Bin sampling without convolution
+################################################################################
+
+struct UniformSampling <: AbstractIntensitiesCalculationSpec
+    binning  :: UniformBinning
+
+    # Q-sampling
+    qpoints   :: Array{Sunny.Vec3, 3}                # Sampled points in momentum space
+    qidcs                                            # Indices corresponding to interior of q bins. Same dimensions as binning.qcenters.
+
+    # E-sampling and broadening
+    ekernel   :: Sunny.AbstractBroadening            # Sunny broadening to be passed to `Sunny.intensities`
+    epoints   :: Vector{Float64}                     # Sampled points in momentum space
+    eidcs                                            # Indices corresponding to interior of energy bins. Same dimensions as binning.ecenters.
+end
+
+
+"""
+    UniformSampling(binning::UniformBinning, ekernel; nperbin, nperebin=1)
+
+"""
+function UniformSampling(binning::UniformBinning, ekernel; nperbin, nperebin=1)
+    (; Δs, qcenters, ecenters, directions) = binning
+
+    # Generate nperbin uniformly spaced samples for each bin, including in
+    # padding bins.
+    (; qpoints, epoints) = sample_binning(binning; nperbin, nghosts=0, nperebin)
+
+    # Keep track of which sample points are in which q-bins. 
+    bounds = [(-Δ/2, Δ/2) for Δ in Δs[1:3]]
+    qidcs = map(q0 -> find_points_in_bin(q0, directions, bounds, qpoints), qcenters)
+
+    # Binning indices for energy axis.
+    ΔE = Δs[4]
+    eidcs = map(ecenters) do E0
+        findall(E -> abs(E0 - E) < ΔE/2, epoints)
+    end
+
+    return UniformSampling(binning, qpoints, qidcs, ekernel, epoints, eidcs)
 end

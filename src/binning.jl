@@ -93,7 +93,7 @@ function sample_binning(binning::UniformBinning; nperbin=1, nghosts=0, nperebin=
     increment = Δs[4] / nperebin
     qbase = ecenters[1] - ΔE/2
     offset = increment*0.5
-    epoints = [qbase + offset + increment*N for N in 0:length(ecenters)-1]
+    epoints = [qbase + offset + increment*N for N in 0:(length(ecenters)*nperebin-1)]
 
     return (; qpoints, epoints)
 end

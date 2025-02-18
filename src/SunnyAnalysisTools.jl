@@ -17,8 +17,8 @@ export gaussian_mixture_model
 include("binning.jl")
 export UniformBinning
 
-include("convolution.jl")
-export energy_resolution_kernel, UniformQBroadening
+include("calculation_spec.jl")
+export energy_resolution_kernel, StationaryQConvolution, UniformSampling
 
 include("observations.jl")
 export Observation
