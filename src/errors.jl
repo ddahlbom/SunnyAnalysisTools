@@ -1,5 +1,5 @@
 function chi_square(obs::Observation, calc; scale=1.0, intensity_normalization=false)
-    (; ints, errs, mask, background) = obs
+    (; ints, errs, mask_idcs, background) = obs
     @assert size(calc) == size(ints)
 
     calc_scaled = scale .* calc
@@ -11,7 +11,7 @@ function chi_square(obs::Observation, calc; scale=1.0, intensity_normalization=f
     χ2 = 0.0
     dof = 0
     total_intensity = 0.0
-    for idx in mask
+    for idx in mask_idcs
         if !iszero(errs[idx])
             χ2 += (ints[idx] - calc_scaled[idx])^2 / errs[idx]^2
             dof += 1
