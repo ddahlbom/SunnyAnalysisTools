@@ -29,6 +29,9 @@ export intensities_binned
 include("parsing.jl")
 export read_shiver_ascii
 
+include("errors.jl")
+export chi_square
+
 
 ################################################################################
 # Only load plotting functions if GLMakie imported. See Sunny.jl as reference
