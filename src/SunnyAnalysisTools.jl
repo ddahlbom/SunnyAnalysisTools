@@ -3,9 +3,16 @@ module SunnyAnalysisTools
 import Sunny
 using LinearAlgebra, Random, LsqFit, FFTW
 
+ENV["JULIA_CONDAPKG_BACKEND"] = "Null"
+ENV["JULIA_PYTHONCALL_EXE"] = "/home/uud/miniforge3/envs/neutron/bin/python" # How to automate this?
+
+using PythonCall
+
 ################################################################################
 # Files and exports 
 ################################################################################
+include("constants.jl")
+
 include("util.jl")
 
 include("instruments.jl")
@@ -18,16 +25,22 @@ include("binning.jl")
 export UniformBinning
 
 include("calculation_spec.jl")
-export energy_resolution_kernel, StationaryQConvolution, UniformSampling
+export Calculation, StationaryQConvolution, UniformSampling
+
+include("resolution.jl")
+export energy_resolution_kernel
 
 include("observations.jl")
 export Observation
 
+include("models.jl")
+export SWTModel
+
 include("intensities.jl")
-export intensities_binned
+export CalculationResult, calculate_intensities
 
 include("parsing.jl")
-export read_shiver_ascii
+# export read_shiver_ascii
 
 include("errors.jl")
 export chi_square

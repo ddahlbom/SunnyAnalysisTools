@@ -1,4 +1,5 @@
-function intensities_binned(swt, broadening_spec::StationaryQConvolution; kwargs...)
+function calculate_intensities(swtmodel::SWTModel, broadening_spec::StationaryQConvolution; kwargs...)
+    (; swt) = swtmodel
     (; qpoints, epoints, qidcs, eidcs, qkernel, ekernel, binning) = broadening_spec
     (; qcenters, ecenters) = binning
 
@@ -24,11 +25,12 @@ function intensities_binned(swt, broadening_spec::StationaryQConvolution; kwargs
         res[j, i] /= length(eidcs[j]) * length(qidcs[i])
     end
 
-    return res
+    # spec and params
+    ModelCalculation(res, binning, spec, params)
 end
 
 
-function intensities_binned(swt, broadening_spec::UniformSampling; kwargs...)
+function calculate_intensities(swt::SWTModel, broadening_spec::UniformSampling; kwargs...)
     (; qpoints, epoints, qidcs, eidcs, ekernel, binning) = broadening_spec
     (; qcenters, ecenters) = binning
 
@@ -46,5 +48,6 @@ function intensities_binned(swt, broadening_spec::UniformSampling; kwargs...)
         res[j, i] /= length(eidcs[j]) * length(qidcs[i])
     end
 
-    return res
+    # spec and params
+    ModelCalculation(res, binning, spec, params)
 end

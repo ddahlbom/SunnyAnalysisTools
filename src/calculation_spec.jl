@@ -1,24 +1,3 @@
-################################################################################
-# Energy broadening
-################################################################################
-
-# This should be rewritten based on more fundamental parameters so it works for
-# additional values. See equation from Savici.
-function energy_resolution_kernel(spec::CNCSSpec)
-    (; Ei) = spec
-    fwhm = if Ei ≈ 1.55
-        E -> (2.4994e-4)*sqrt((Ei-E)^3 * ( (211.41149*(0.052+0.123*(Ei/(Ei-E))^1.5))^2 + (57.27700*(1.052+0.123*(Ei/(Ei-E))^1.5))^2) ) / 2.355 
-    elseif Ei ≈ 2.5
-        E -> (2.4994e-4)*sqrt((Ei-E)^3 * ( (183.25988*(0.052+0.123*(Ei/(Ei-E))^1.5))^2 + (57.27700*(1.052+0.123*(Ei/(Ei-E))^1.5))^2) ) / 2.355
-    elseif Ei ≈ 6.59
-        E -> (2.4994e-4)*sqrt((Ei-E)^3 * ( (124.84362*(0.052+0.123*(Ei/(Ei-E))^1.5))^2 + (57.27700*(1.052+0.123*(Ei/(Ei-E))^1.5))^2) ) / 2.355
-    else
-        error("No such incident energy setting known. Available eᵢ values are: 1.55, 2.5, 6.59")
-        _ -> ()
-    end
-    return Sunny.NonstationaryBroadening((b, ω) -> exp(-(ω-b)^2/2fwhm(b)^2) / √(2π*fwhm(b)^2))
-end
-
 
 ################################################################################
 # Q-broadening only
@@ -27,10 +6,10 @@ end
 # An AbstractConvolution should provide full specifications for how to treat
 # intensities calculations from Sunny, including procedures for both energy
 # and momentum convolution.
-abstract type AbstractIntensitiesCalculationSpec end
+abstract type AbstractCalculationSpec end
 
 # Add IFFT plan
-struct StationaryQConvolution <: AbstractIntensitiesCalculationSpec
+struct StationaryQConvolution <: AbstractCalculationSpec
     binning  :: UniformBinning
 
     # Q-broadening
@@ -43,6 +22,13 @@ struct StationaryQConvolution <: AbstractIntensitiesCalculationSpec
     ekernel   :: Sunny.AbstractBroadening            # Sunny broadening to be passed to `Sunny.intensities`
     epoints   :: Vector{Float64}                     # Sampled points in momentum space
     eidcs                                            # Indices corresponding to interior of energy bins. Same dimensions as binning.ecenters.
+end
+
+struct ModelCalculation
+    data    :: Array{Float64, 4}
+    binning :: AbstractBinning
+    spec    :: AbstractCalculationSpec
+    params  :: Union{Nothing, Dict{Any, Any}}
 end
 
 
@@ -102,7 +88,7 @@ end
 # Bin sampling without convolution
 ################################################################################
 
-struct UniformSampling <: AbstractIntensitiesCalculationSpec
+struct UniformSampling <: AbstractCalculationSpec
     binning  :: UniformBinning
 
     # Q-sampling
