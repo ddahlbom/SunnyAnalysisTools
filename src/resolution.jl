@@ -2,27 +2,19 @@
 # Energy broadening
 ################################################################################
 
-# This should be rewritten based on more fundamental parameters so it works for
-# additional values. See equation from Savici.
-function energy_resolution_kernel(spec::CNCSSpec)
-    (; Ei) = spec
-    fwhm = if Ei ≈ 1.55
-        E -> (2.4994e-4)*sqrt((Ei-E)^3 * ( (211.41149*(0.052+0.123*(Ei/(Ei-E))^1.5))^2 + (57.27700*(1.052+0.123*(Ei/(Ei-E))^1.5))^2) ) / 2.355 
-    elseif Ei ≈ 2.5
-        E -> (2.4994e-4)*sqrt((Ei-E)^3 * ( (183.25988*(0.052+0.123*(Ei/(Ei-E))^1.5))^2 + (57.27700*(1.052+0.123*(Ei/(Ei-E))^1.5))^2) ) / 2.355
-    elseif Ei ≈ 6.59
-        E -> (2.4994e-4)*sqrt((Ei-E)^3 * ( (124.84362*(0.052+0.123*(Ei/(Ei-E))^1.5))^2 + (57.27700*(1.052+0.123*(Ei/(Ei-E))^1.5))^2) ) / 2.355
-    else
-        error("No such incident energy setting known. Available eᵢ values are: 1.55, 2.5, 6.59")
-        _ -> ()
-    end
-    return Sunny.NonstationaryBroadening((b, ω) -> exp(-(ω-b)^2/2fwhm(b)^2) / √(2π*fwhm(b)^2))
-end
+function nonstationary_gaussian(instrument::ChopperSpec)
+    (; Ei, L1, L2, L3, Δtp, Δtc, Δtd) = instrument
 
-function energy_resolution_kernel(instrument::ChopperSpec)
-    (; Ei, L1, L2, L3, Δtp, Δtc, Δtd, Δθ) = instrument
+    # Calculate the resolution kernel at some representative points.
     Es = range(-Ei, Ei, 200)
+    dEs = [energy_resolution(Ei, E, L1, L2, L3, Δtp, Δtd, Δtc) for E in Es]
 
+    # First a third-order polynomial to resulting values to determine a FWHM function.
+    @. poly3(x, p) = p[1]*x^3 + p[2]*x^2 + p[3]*x + p[4]
+    fit = curve_fit(poly3, Es, dEs, 0.1*ones(4))
+    fwhm(E) = poly3(E, fit.param)
+
+    return Sunny.NonstationaryBroadening((b, ω) -> exp(-(ω-b)^2/2fwhm(b)^2) / √(2π*fwhm(b)^2))
 end
 
 
@@ -54,7 +46,7 @@ function theta(Ei_meV, E_meV, Q)
     return acos(cos_2theta)/2
 end
 
-function energy_resolution_full(Ei_meV, E_meV, L1, L2, L3, Δtp, Δtc, Δtd)
+function energy_resolution(Ei_meV, E_meV, L1, L2, L3, Δtp, Δtc, Δtd)
     Ef_meV = Ei_meV - E_meV
     vi = energy_to_velocity(Ei_meV)
     vf = energy_to_velocity(Ef_meV)

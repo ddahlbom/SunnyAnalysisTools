@@ -21,7 +21,7 @@ struct StationaryQConvolution <: AbstractCalculationSpec
     # E-broadening
     ekernel   :: Sunny.AbstractBroadening            # Sunny broadening to be passed to `Sunny.intensities`
     epoints   :: Vector{Float64}                     # Sampled points in momentum space
-    eidcs                                            # Indices corresponding to interior of energy bins. Same dimensions as binning.ecenters.
+    eidcs                                            # Indices corresponding to interior of energy bins. Same dimensions as binning.Es
 end
 
 struct ModelCalculation
@@ -54,7 +54,7 @@ uncorrelated.
 
 """
 function StationaryQConvolution(binning::UniformBinning, qfwhm, ekernel; nperbin, nghosts, nperebin=1)
-    (; crystal, Δs, qcenters, ecenters, directions) = binning
+    (; crystal, Δs, qcenters, Es, directions) = binning
 
     # Convert broadening parameters to a covariance matrix.
     σ = qfwhm / 2√(2log(2))
@@ -77,7 +77,7 @@ function StationaryQConvolution(binning::UniformBinning, qfwhm, ekernel; nperbin
 
     # Binning indices for energy axis.
     ΔE = Δs[4]
-    eidcs = map(ecenters) do E0
+    eidcs = map(Es) do E0
         findall(E -> abs(E0 - E) < ΔE/2, epoints)
     end
 
@@ -98,7 +98,7 @@ struct UniformSampling <: AbstractCalculationSpec
     # E-sampling and broadening
     ekernel   :: Sunny.AbstractBroadening            # Sunny broadening to be passed to `Sunny.intensities`
     epoints   :: Vector{Float64}                     # Sampled points in momentum space
-    eidcs                                            # Indices corresponding to interior of energy bins. Same dimensions as binning.ecenters.
+    eidcs                                            # Indices corresponding to interior of energy bins. Same dimensions as binning.Es.
 end
 
 
@@ -107,7 +107,7 @@ end
 
 """
 function UniformSampling(binning::UniformBinning, ekernel; nperbin, nperebin=1)
-    (; Δs, qcenters, ecenters, directions) = binning
+    (; Δs, qcenters, Es, directions) = binning
 
     # Generate nperbin uniformly spaced samples for each bin, including in
     # padding bins.
@@ -119,7 +119,7 @@ function UniformSampling(binning::UniformBinning, ekernel; nperbin, nperebin=1)
 
     # Binning indices for energy axis.
     ΔE = Δs[4]
-    eidcs = map(ecenters) do E0
+    eidcs = map(Es) do E0
         findall(E -> abs(E0 - E) < ΔE/2, epoints)
     end
 

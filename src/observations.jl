@@ -12,8 +12,8 @@ end
 function Observation(binning, ints, errs; instrument=nothing, model=nothing, background=nothing, filtersubzeros=false)
 
     # Check that intensities and errors are compatible with given binning.
-    (; ecenters, qcenters) = binning
-    composite_size = (length(ecenters), size(qcenters)...)
+    (; Es, qcenters) = binning
+    composite_size = (length(Es), size(qcenters)...)
     @assert composite_size == size(ints) == size(errs) "Size or errors and/or intensities not compatible with given binning scheme"
 
     # Remove negative values (from background subtraction)
@@ -31,4 +31,39 @@ function Observation(binning, ints, errs; instrument=nothing, model=nothing, bac
     mask[mask_idcs] .= 1.0
 
     return Observation(instrument, binning, ints, errs, mask, mask_idcs, model, background)
+end
+
+
+"""
+    read_shiver_ascii(file, binning; instrument=nothing)
+
+Parse a Shiver file and return an Observation. An appropriate UniformBinning
+must be provided. Instrument information may optionally be attached to the
+resulting Observation.
+"""
+function read_shiver_ascii(file, binning; instrument=nothing, filtersubzeros=false)
+    data = readdlm(file)
+
+    # Read metadata from the shiver file
+    labels = data[1,4:7]
+    shape = parse.(Int64, split(data[2,3], "x"))
+
+    # Set up a permutation that moves the enegy axis to the first index.
+    eidx = findfirst(label -> label==("DeltaE"), labels)
+    permutation = [1, 2, 3, 4]
+    permutation = [eidx, deleteat!(permutation, eidx)...]  # Shift energy to first position
+
+    # Read the intensities and errors, reshaping (to deal with data that must be
+    # interpreted as row major) and permuting the dimensions to move the energy
+    # axis first.
+    ints, errs = map([data[3:end,1], data[3:end,2]]) do vals
+        vals = Float64.(vals)
+        vals = PermutedDimsArray(reshape(vals, reverse(shape)...), [4, 3, 2, 1])
+        vals = permutedims(vals, permutation)
+        vals
+    end
+
+    binning.labels = labels[permutation]
+
+    return Observation(binning, ints, errs; instrument, filtersubzeros)
 end

@@ -19,34 +19,6 @@ function SunnyAnalysisTools.draw_boundary!(ax, q, directions, bounds; color=:bla
     end
 end
 
-# function SunnyAnalysisTools.visualize_convolution(q_target, bi, spec)
-#     fig = Figure(size=(1800, 400))
-#     (; crystal) = bi
-# 
-#     ax1 = LScene(fig[1,1])
-#     ax2 = LScene(fig[1,2])
-#     ax3 = LScene(fig[1,3])
-#     ax4 = LScene(fig[1,4])
-# 
-#     pts_abs = map(q -> crystal.recipvecs*(q+q_target), spec.points)
-#     xs = [p[1] for p in pts_abs[:,1,1]]
-#     ys = [p[2] for p in pts_abs[1,:,1]]
-#     zs = [p[3] for p in pts_abs[1,1,:]]
-# 
-#     scatter!(ax1, pts_abs[:])
-#     draw_boundary!(ax1, q_target, bi.directions, bi.bounds; recipvecs=crystal.recipvecs)
-# 
-#     volume!(ax2, xs[1]..xs[end], ys[1]..ys[end], zs[1]..zs[end], real.(ifft(spec.kernel)))
-#     draw_boundary!(ax2, q_target, bi.directions, bi.bounds; recipvecs=crystal.recipvecs)
-# 
-#     scatter!(ax3, map(p -> p + q_target, spec.points[:]))
-#     draw_boundary!(ax3, q_target, bi.directions, bi.bounds)
-# 
-#     scatter!(ax4, map(p -> p + q_target, spec.points[spec.interior_idcs]))
-#     draw_boundary!(ax4, q_target, bi.directions, bi.bounds)
-# 
-#     return fig
-# end
 
 function SunnyAnalysisTools.visualize_binning(binning::SunnyAnalysisTools.UniformBinning; labframe=false)
     fig = Figure()
@@ -60,6 +32,85 @@ function SunnyAnalysisTools.visualize_binning(binning::SunnyAnalysisTools.Unifor
     end
 
     return fig
+end
+
+
+function SunnyAnalysisTools.plot_binned_data!(panel, data, binning::SunnyAnalysisTools.AbstractBinning; title="", plotopts=NamedTuple(), axisopts=NamedTuple())
+    (; Us, Vs, Ws, Es, labels) = binning
+
+    # Determine which dimensions are relevant
+    nenergies = size(data, 1)
+    liveqidcs = findall(n -> n > 1, size(data)[2:end]) .+ 1 # Indices of spatial axes with more than one point
+    deadidcs = filter(idx -> !(idx in liveqidcs), [2, 3, 4])
+    if nenergies == 1
+        push!(deadidcs, 1)
+    end
+    deadidcs = sort(deadidcs)
+    nqdims = length(liveqidcs)
+
+    if nqdims == 0
+        # Single-Q energy-intensity plot
+        ax = Axis(panel; xlabel = "Energy transfer", ylabel="Intensity", title, axisopts...)
+        lines!(ax, binning.Es, data[:,1,1,1])
+
+    elseif nqdims == 1
+        if nenergies == 1
+            # Constant-energy Q-intensity plot 
+            error("This plotting functionality not yet implemented.")
+        else
+            # 2D path plot 
+            xlabel, ylabel = labels[liveqidcs[1]], "ΔE"
+            ax = Axis(panel; xlabel, ylabel, title, axisopts...)
+
+            # Downselect the live indices
+            plottingdata = data 
+            for (i, deadidx) in enumerate(sort(deadidcs))
+                plottingdata = selectdim(plottingdata, deadidx - i + 1, 1)
+            end
+
+            # Get the values along each axis
+            axisvals = [Es, Us, Vs, Ws]
+            xs = axisvals[liveqidcs[1]]
+            ys = axisvals[1]
+
+            heatmap!(ax, xs, ys, plottingdata'; plotopts...)
+
+        end
+    elseif nqdims == 2
+        @assert nenergies == 1 "Three dimensional plotting is not yet supported."
+
+        xlabel, ylabel = labels[liveqidcs[1]], labels[liveqidcs[2]]
+        ax = Axis(panel; xlabel, ylabel, title, axisopts...)
+
+        # Downselect the live indices
+        plottingdata = data 
+        for (i, deadidx) in enumerate(sort(deadidcs))
+            plottingdata = selectdim(plottingdata, deadidx - i + 1, 1)
+        end
+
+        # Get the values along each axis
+        axisvals = [Es, Us, Vs, Ws]
+        xs = axisvals[liveqidcs[1]]
+        ys = axisvals[liveqidcs[2]]
+
+        heatmap!(ax, xs, ys, plottingdata; plotopts...)
+
+    elseif nqdims == 3
+        @assert nenergies != 1 "Four dimensional plotting is unsupportable."
+        error("Three dimensional plotting is not yet supported.")
+    end
+end
+
+
+function SunnyAnalysisTools.plot_binned_data!(panel, observation::SunnyAnalysisTools.Observation)
+    (; ints, binning) = observation
+    plot_binned_data!(panel, ints, binning)
+end
+
+
+function SunnyAnalysisTools.plot_binned_data!(panel, calc::SunnyAnalysisTools.ModelCalculation)
+    (; data, binning) = calc
+    plot_binned_data!(panel, data, binning)
 end
 
 

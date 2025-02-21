@@ -2,11 +2,7 @@ module SunnyAnalysisTools
 
 import Sunny
 using LinearAlgebra, Random, LsqFit, FFTW
-
-ENV["JULIA_CONDAPKG_BACKEND"] = "Null"
-ENV["JULIA_PYTHONCALL_EXE"] = "/home/uud/miniforge3/envs/neutron/bin/python" # How to automate this?
-
-using PythonCall
+import DelimitedFiles: readdlm
 
 ################################################################################
 # Files and exports 
@@ -16,7 +12,7 @@ include("constants.jl")
 include("util.jl")
 
 include("instruments.jl")
-export CNCSSpec
+export ChopperSpec
 
 include("data_modeling.jl")
 export gaussian_mixture_model
@@ -31,13 +27,13 @@ include("resolution.jl")
 export energy_resolution_kernel
 
 include("observations.jl")
-export Observation
+export Observation, read_shiver_ascii
 
 include("models.jl")
 export SWTModel
 
 include("intensities.jl")
-export CalculationResult, calculate_intensities
+export ModelCalculation, calculate_intensities
 
 include("parsing.jl")
 # export read_shiver_ascii
@@ -54,7 +50,8 @@ function is_pkg_loaded(pkg::Symbol)
 end
 
 extension_fns = [
-    :GLMakie => [:draw_boundary!, :visualize_binning],
+    :GLMakie => [:draw_boundary!, :visualize_binning, :plot_binned_data!],
+    :PythonCall => [:cncs]
 ]
 
 for (_pkg, fns) in extension_fns
@@ -81,5 +78,6 @@ end
 
 # Access to PlottingExt module for developer convenience
 PlottingExt() = Base.get_extension(@__MODULE__, :PlottingExt)
+PythonToolsExt() = Base.get_extension(@__MODULE__, :PythonToolsExt)
 
 end

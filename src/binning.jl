@@ -4,17 +4,24 @@
 
 abstract type AbstractBinning end
 
-struct UniformBinning <: AbstractBinning
-    crystal    :: Sunny.Crystal
-    directions :: Sunny.Mat3        # Definition of scattering coordinates (relative to RLU)
+mutable struct UniformBinning <: AbstractBinning
+    const crystal     :: Sunny.Crystal
 
-    qcenters   :: Array{Vector{Float64}, 3}
-    ecenters   :: Vector{Float64}
-    Δs         :: Vector{Float64}
+    const directions  :: Sunny.Mat3        # Definition of scattering coordinates (relative to RLU)
+    labels            :: Vector{String} 
 
-    qbase       :: Sunny.Vec3 
+    const Us          :: Vector{Float64}
+    const Vs          :: Vector{Float64}
+    const Ws          :: Vector{Float64}
+    const Es          :: Vector{Float64}
 
-    function UniformBinning(crystal, directions, Us, Vs, Ws, Es)
+    const qcenters    :: Array{Vector{Float64}, 3}
+    const qbase       :: Sunny.Vec3 
+
+    const Δs          :: Vector{Float64}
+
+
+    function UniformBinning(crystal, directions, Us, Vs, Ws, Es; labels=["U", "V", "W"])
         # Ensure that spacing is uniform 
         Δs = map([Us, Vs, Ws, Es]) do vals
             Δs = vals[2:end] .- vals[1:end-1]
@@ -35,7 +42,7 @@ struct UniformBinning <: AbstractBinning
         qcenters = [directions*[U, V, W] for U in Us, V in Vs, W in Ws]
         qbase = qcenters[1,1,1] .- 0.5*(directions*Δs[1:3])
 
-        new(crystal, directions, qcenters, Es, Δs, qbase)
+        new(crystal, directions, labels, Us, Vs, Ws, Es, qcenters, qbase, Δs)
     end
 end 
 
@@ -74,7 +81,7 @@ end
 ################################################################################
 
 function sample_binning(binning::UniformBinning; nperbin=1, nghosts=0, nperebin=1)
-    (; crystal, directions, Δs, qcenters, qbase, ecenters) = binning
+    (; crystal, directions, Δs, qcenters, qbase, Es) = binning
     (; recipvecs) = crystal
     nperbins = isa(nperbin, Number) ? nperbin * ones(3) : nperbin
     nghosts = isa(nghosts, Number) ? nghosts * ones(3) : nghosts
@@ -91,9 +98,9 @@ function sample_binning(binning::UniformBinning; nperbin=1, nghosts=0, nperebin=
     # Sample energies
     ΔE = Δs[4]
     increment = Δs[4] / nperebin
-    qbase = ecenters[1] - ΔE/2
+    ebase = Es[1] - ΔE/2
     offset = increment*0.5
-    epoints = [qbase + offset + increment*N for N in 0:(length(ecenters)*nperebin-1)]
+    epoints = [ebase + offset + increment*N for N in 0:(length(Es)*nperebin-1)]
 
     return (; qpoints, epoints)
 end
