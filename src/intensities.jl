@@ -26,11 +26,12 @@ function calculate_intensities(swtmodel::SWTModel, broadening_spec::StationaryQC
     end
 
     # spec and params
-    ModelCalculation(res, binning, spec, params)
+    ModelCalculation(res, binning, broadening_spec, swtmodel.params)
 end
 
 
-function calculate_intensities(swt::SWTModel, broadening_spec::UniformSampling; kwargs...)
+function calculate_intensities(swtmodel::SWTModel, broadening_spec::UniformSampling; kwargs...)
+    (; swt) = swtmodel
     (; qpoints, epoints, qidcs, eidcs, ekernel, binning) = broadening_spec
     (; qcenters, Es) = binning
 
@@ -49,5 +50,5 @@ function calculate_intensities(swt::SWTModel, broadening_spec::UniformSampling; 
     end
 
     # spec and params
-    ModelCalculation(res, binning, spec, params)
+    ModelCalculation(res, binning, broadening_spec, swtmodel.params)
 end
