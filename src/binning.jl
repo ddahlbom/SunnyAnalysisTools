@@ -19,6 +19,8 @@ mutable struct UniformBinning <: AbstractBinning
     const qbase       :: Sunny.Vec3 
 
     const Δs          :: Vector{Float64}
+    const binvol      :: Float64
+    const crystvol    :: Float64
 
 
     function UniformBinning(crystal, directions, Us, Vs, Ws, Es; labels=["U", "V", "W"])
@@ -28,6 +30,10 @@ mutable struct UniformBinning <: AbstractBinning
             @assert all(Δ -> Δ ≈ Δs[1], Δs) "Step sizes must all be equal for a UniformBinning"
             Δs[1]
         end
+
+        # Calculate the volume of the bin as a fraction of 1 BZ
+        binvol = det(directions*diagm([Δs[1:3]...])) * Δs[4]
+        crystvol = det(crystal.latvecs)
 
         # If only bounds are given (as opposed to a list) determine center point.
         Us, Vs, Ws, Es = map([Us, Vs, Ws, Es]) do vals
@@ -42,36 +48,45 @@ mutable struct UniformBinning <: AbstractBinning
         qcenters = [directions*[U, V, W] for U in Us, V in Vs, W in Ws]
         qbase = qcenters[1,1,1] .- 0.5*(directions*Δs[1:3])
 
-        new(crystal, directions, labels, Us, Vs, Ws, Es, qcenters, qbase, Δs)
+        new(crystal, directions, labels, Us, Vs, Ws, Es, qcenters, qbase, Δs, binvol, crystvol)
     end
 end 
 
 function Base.show(io::IO, binning::UniformBinning)
-    (; qcenters, Δs, crystal, directions) = binning
+    (; qcenters, Δs, crystal, directions, Us, Vs, Ws, Es) = binning
     println(io, "UniformBinning")
     nH, nK, nL = size(qcenters)
+    nE = length(Es)
 
-    println(io, crystal)
-    println(io, "Directions: ", directions) # Make this nicer
-    print(io, "H: ")
+    print(io, crystal)
+    # println(io, "Directions: ", directions) # Make this nicer
 
     # Make this nicer with select dim or similar
+    print(io, "H: ")
     if nH == 1
         println(io, "$(qcenters[1,1,1][1]), ΔH=$(round(Δs[1], digits=3))")
     else
-        println(io, "$(qcenters[1,1,1][1])...$(qcenters[end,1,1][1]), ΔH=$(Δs[1])")
+        println(io, "$(qcenters[1,1,1][1]),...,$(qcenters[end,1,1][1]), ΔH=$(round(Δs[1], digits=3))")
     end
+
     print(io, "K: ")
     if nK == 1
-        println(io, "$(qcenters[1,1,1][2]), ΔK=$(Δs[2])")
+        println(io, "$(qcenters[1,1,1][2]), ΔK=$(round(Δs[2], digits=3))")
     else
-        println(io, "$(qcenters[1,1,1][2])...$(qcenters[1,end,1][2]), ΔH=$(Δs[2])")
+        println(io, "$(qcenters[1,1,1][2]),...,$(qcenters[1,end,1][2]), ΔK=$(round(Δs[2], digits=3))")
     end
+
     print(io, "L: ")
     if nL == 1
         println(io, "$(qcenters[1,1,1][3]), ΔL=$(round(Δs[3], digits=3))")
     else
-        println(io, "$(qcenters[1,1,1][3])...$(qcenters[end,1,1][3]), ΔH=$(round(Δs[3], digits=3))")
+        println(io, "$(qcenters[1,1,1][3]),...,$(qcenters[end,1,1][3]), ΔL=$(round(Δs[3], digits=3))")
+    end
+    print(io, "E: ")
+    if nE == 1
+        println(io, "$(Es[1]), ΔE=$(round(Δs[4], digits=3))")
+    else
+        println(io, "$(Es[1]),...,$(Es[end]), ΔL=$(round(Δs[4], digits=3))")
     end
 
 end

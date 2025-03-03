@@ -1,7 +1,7 @@
 function calculate_intensities(swtmodel::SWTModel, broadening_spec::StationaryQConvolution; kwargs...)
     (; swt) = swtmodel
     (; qpoints, epoints, qidcs, eidcs, qkernel, ekernel, binning) = broadening_spec
-    (; qcenters, Es) = binning
+    (; qcenters, Es, binvol, crystvol) = binning
 
     # Calculate intensities for all points in subsuming grid around bin.
     res = Sunny.intensities(swt, qpoints[:]; energies=epoints, kernel=ekernel, kwargs...)
@@ -24,6 +24,7 @@ function calculate_intensities(swtmodel::SWTModel, broadening_spec::StationaryQC
         end
         res[j, i] /= length(eidcs[j]) * length(qidcs[i])
     end
+    res .*= binvol
 
     # spec and params
     ModelCalculation(res, binning, broadening_spec, swtmodel.params)
@@ -33,7 +34,7 @@ end
 function calculate_intensities(swtmodel::SWTModel, broadening_spec::UniformSampling; kwargs...)
     (; swt) = swtmodel
     (; qpoints, epoints, qidcs, eidcs, ekernel, binning) = broadening_spec
-    (; qcenters, Es) = binning
+    (; qcenters, Es, binvol) = binning
 
     # Calculate intensities for all points in subsuming grid around bin.
     res = Sunny.intensities(swt, qpoints[:]; energies=epoints, kernel=ekernel, kwargs...)
@@ -48,6 +49,7 @@ function calculate_intensities(swtmodel::SWTModel, broadening_spec::UniformSampl
         end
         res[j, i] /= length(eidcs[j]) * length(qidcs[i])
     end
+    res .*= binvol
 
     # spec and params
     ModelCalculation(res, binning, broadening_spec, swtmodel.params)

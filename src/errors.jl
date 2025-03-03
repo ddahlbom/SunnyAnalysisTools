@@ -1,8 +1,9 @@
-function chi_square(obs::Observation, calc; scale=1.0, intensity_normalization=false)
+function chi_square(obs::Observation, calc::ModelCalculation; scale=1.0, intensity_normalization=false)
     (; ints, errs, mask_idcs, background) = obs
-    @assert size(calc) == size(ints)
+    (; data) = calc
+    @assert size(data) == size(ints)
 
-    calc_scaled = scale .* calc
+    calc_scaled = scale .* data
 
     if !isnothing(background)
         # TODO: Add addition of background to calculation here

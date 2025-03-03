@@ -35,12 +35,17 @@ function SunnyAnalysisTools.visualize_binning(binning::SunnyAnalysisTools.Unifor
 end
 
 
-function SunnyAnalysisTools.plot_binned_data!(panel, data, binning::SunnyAnalysisTools.AbstractBinning; title="", plotopts=NamedTuple(), axisopts=NamedTuple())
+function SunnyAnalysisTools.plot_binned_data!(panel, data, binning::SunnyAnalysisTools.AbstractBinning; 
+    scale=1.0, 
+    title="", 
+    plotopts=NamedTuple(), 
+    axisopts=NamedTuple()
+)
     (; Us, Vs, Ws, Es, labels) = binning
 
     # Determine which dimensions are relevant
     nenergies = size(data, 1)
-    liveqidcs = findall(n -> n > 1, size(data)[2:end]) .+ 1 # Indices of spatial axes with more than one point
+    liveqidcs = findall(n -> n > 1, size(data)[2:end]) .+ 1 # Indices of spatial axes with more than one point -- add one because first index is energy
     deadidcs = filter(idx -> !(idx in liveqidcs), [2, 3, 4])
     if nenergies == 1
         push!(deadidcs, 1)
@@ -51,7 +56,7 @@ function SunnyAnalysisTools.plot_binned_data!(panel, data, binning::SunnyAnalysi
     if nqdims == 0
         # Single-Q energy-intensity plot
         ax = Axis(panel; xlabel = "Energy transfer", ylabel="Intensity", title, axisopts...)
-        lines!(ax, binning.Es, data[:,1,1,1])
+        lines!(ax, binning.Es, data[:,1,1,1] .* scale)
 
     elseif nqdims == 1
         if nenergies == 1
@@ -73,7 +78,7 @@ function SunnyAnalysisTools.plot_binned_data!(panel, data, binning::SunnyAnalysi
             xs = axisvals[liveqidcs[1]]
             ys = axisvals[1]
 
-            heatmap!(ax, xs, ys, plottingdata'; plotopts...)
+            heatmap!(ax, xs, ys, plottingdata' .* scale; plotopts...)
 
         end
     elseif nqdims == 2
@@ -93,7 +98,7 @@ function SunnyAnalysisTools.plot_binned_data!(panel, data, binning::SunnyAnalysi
         xs = axisvals[liveqidcs[1]]
         ys = axisvals[liveqidcs[2]]
 
-        heatmap!(ax, xs, ys, plottingdata; plotopts...)
+        heatmap!(ax, xs, ys, plottingdata .* scale; plotopts...)
 
     elseif nqdims == 3
         @assert nenergies != 1 "Four dimensional plotting is unsupportable."
@@ -102,15 +107,15 @@ function SunnyAnalysisTools.plot_binned_data!(panel, data, binning::SunnyAnalysi
 end
 
 
-function SunnyAnalysisTools.plot_binned_data!(panel, observation::SunnyAnalysisTools.Observation)
+function SunnyAnalysisTools.plot_binned_data!(panel, observation::SunnyAnalysisTools.Observation; kwargs...)
     (; ints, binning) = observation
-    plot_binned_data!(panel, ints, binning)
+    plot_binned_data!(panel, ints, binning; kwargs...)
 end
 
 
-function SunnyAnalysisTools.plot_binned_data!(panel, calc::SunnyAnalysisTools.ModelCalculation)
+function SunnyAnalysisTools.plot_binned_data!(panel, calc::SunnyAnalysisTools.ModelCalculation; kwargs...)
     (; data, binning) = calc
-    plot_binned_data!(panel, data, binning)
+    plot_binned_data!(panel, data, binning; kwargs...)
 end
 
 
