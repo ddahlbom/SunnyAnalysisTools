@@ -24,7 +24,7 @@ include("calculation_spec.jl")
 export Calculation, StationaryQConvolution, UniformSampling
 
 include("resolution.jl")
-export energy_resolution_kernel
+export nonstationary_gaussian
 
 include("observations.jl")
 export Observation, read_shiver_ascii
