@@ -4,8 +4,7 @@ using PythonCall, SunnyAnalysisTools
 
 
 function SunnyAnalysisTools.cncs(; Ei, Δθ = 1.5)
-    _ = pyimport("mantid") # Necessary to make pychop available
-    Instruments = pyimport("pychop.Instruments")
+    Instruments = pyimport("PyChop.Instruments")
     CNCS = Instruments.Instrument("CNCS")
 
     Δθ = Δθ * (π/180) # Convert to radians
