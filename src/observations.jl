@@ -33,6 +33,11 @@ function Observation(binning, ints, errs; instrument=nothing, model=nothing, bac
     return Observation(instrument, binning, ints, errs, mask, mask_idcs, model, background)
 end
 
+function Base.show(io::IO, obs::Observation)
+    (; binning) = obs
+    printstyled(io, "Experimental Observation\n"; bold=true, color=:underline)
+end
+
 
 """
     read_shiver_ascii(file, binning; instrument=nothing)

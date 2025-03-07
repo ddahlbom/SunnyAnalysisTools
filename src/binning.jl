@@ -24,6 +24,15 @@ mutable struct UniformBinning <: AbstractBinning
 
 
     function UniformBinning(crystal, directions, Us, Vs, Ws, Es; labels=["U", "V", "W"])
+        # Make range compatible with Python ranges.
+        Us, Vs, Ws, Es = map([Us, Vs, Ws, Es]) do vals
+            if length(vals) > 2
+                vals[1:end-1]
+            else
+                vals
+            end
+        end
+
         # Ensure that spacing is uniform 
         Δs = map([Us, Vs, Ws, Es]) do vals
             Δs = vals[2:end] .- vals[1:end-1]
@@ -54,12 +63,11 @@ end
 
 function Base.show(io::IO, binning::UniformBinning)
     (; qcenters, Δs, crystal, directions, Us, Vs, Ws, Es) = binning
-    println(io, "UniformBinning")
+    printstyled(io, "Uniform Binning\n"; bold=true, color=:underline)
     nH, nK, nL = size(qcenters)
     nE = length(Es)
 
     print(io, crystal)
-    # println(io, "Directions: ", directions) # Make this nicer
 
     # Make this nicer with select dim or similar
     print(io, "H: ")
@@ -95,10 +103,10 @@ end
 # Methods 
 ################################################################################
 
-function sample_binning(binning::UniformBinning; nperbin=1, nghosts=0, nperebin=1)
+function sample_binning(binning::UniformBinning; nperqbin=1, nghosts=0, nperebin=1)
     (; crystal, directions, Δs, qcenters, qbase, Es) = binning
     (; recipvecs) = crystal
-    nperbins = isa(nperbin, Number) ? nperbin * ones(3) : nperbin
+    nperbins = isa(nperqbin, Number) ? nperqbin * ones(3) : nperbin
     nghosts = isa(nghosts, Number) ? nghosts * ones(3) : nghosts
 
     # Sample q points

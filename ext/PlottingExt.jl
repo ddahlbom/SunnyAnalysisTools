@@ -112,11 +112,21 @@ function SunnyAnalysisTools.plot_binned_data!(panel, observation::SunnyAnalysisT
     plot_binned_data!(panel, ints, binning; kwargs...)
 end
 
-
 function SunnyAnalysisTools.plot_binned_data!(panel, calc::SunnyAnalysisTools.ModelCalculation; kwargs...)
     (; data, binning) = calc
     plot_binned_data!(panel, data, binning; kwargs...)
 end
 
+# function SunnyAnalysisTools.plot_binned_data(observation::SunnyAnalysisTools.Observation; kwargs...)
+#     fig = Figure()
+#     plot_binned_data!(fig[1,1], observation; kwargs...)
+#     return fig
+# end
+# 
+# function SunnyAnalysisTools.plot_binned_data(calc::SunnyAnalysisTools.ModelCalculation; kwargs...)
+#     fig = Figure()
+#     plot_binned_data!(fig[1,1], calc; kwargs...)
+#     return fig
+# end
 
 end

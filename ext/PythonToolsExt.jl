@@ -18,7 +18,7 @@ function SunnyAnalysisTools.cncs(; Ei, Δθ = 1.5)
     Δtc = chopper_width 
     Δtd = 0.0
 
-    SunnyAnalysisTools.ChopperSpec(Ei, L1, L2, L3, Δtp, Δtc, Δtd, Δθ)
+    SunnyAnalysisTools.ChopperSpec("CNCS", Ei, L1, L2, L3, Δtp, Δtc, Δtd, Δθ)
 end
 
 end

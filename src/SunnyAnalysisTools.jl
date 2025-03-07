@@ -50,7 +50,7 @@ function is_pkg_loaded(pkg::Symbol)
 end
 
 extension_fns = [
-    :GLMakie => [:draw_boundary!, :visualize_binning, :plot_binned_data!],
+    :GLMakie => [:draw_boundary!, :visualize_binning, :plot_binned_data!, :plot_binnned_data],
     :PythonCall => [:cncs]
 ]
 

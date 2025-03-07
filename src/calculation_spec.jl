@@ -31,6 +31,9 @@ struct ModelCalculation
     params  :: Union{Nothing, Dict{Any, Any}}
 end
 
+function Base.show(io::IO, ::ModelCalculation)
+    printstyled(io, "Analog Calculation\n"; bold=true, color=:underline)
+end
 
 """
     UniformQBroadening(binning::UniformBinning, qfwhm, ekernel; nperbin, nghosts, nperebin=1)
@@ -53,7 +56,7 @@ uncorrelated.
   dimension of each bin. By default just the bin center is used.
 
 """
-function StationaryQConvolution(binning::UniformBinning, qfwhm, ekernel; nperbin, nghosts, nperebin=1)
+function StationaryQConvolution(binning::UniformBinning, qfwhm, ekernel; nperqbin, nghosts, nperebin=1)
     (; crystal, Δs, qcenters, Es, directions) = binning
 
     # Convert broadening parameters to a covariance matrix.
@@ -62,7 +65,7 @@ function StationaryQConvolution(binning::UniformBinning, qfwhm, ekernel; nperbin
 
     # Generate nperbin uniformly spaced samples for each bin, including in
     # padding bins.
-    (; qpoints, epoints) = sample_binning(binning; nperbin, nghosts, nperebin)
+    (; qpoints, epoints) = sample_binning(binning; nperqbin, nghosts, nperebin)
 
     # Keep track of which sample points are in which q-bins. *Note that the
     # indices need to be FFT shifted.*
@@ -84,6 +87,17 @@ function StationaryQConvolution(binning::UniformBinning, qfwhm, ekernel; nperbin
     return StationaryQConvolution(binning, qfwhm, qkernel, qpoints, qidcs, ekernel, epoints, eidcs)
 end
 
+function StationaryQConvolution(obs::Observation; nperqbin, nperebin=1, nghosts=[1,1,1])
+    (; binning, instrument) = obs
+    ekernel = nonstationary_gaussian(instrument)
+    qfwhm = 0.002 # Potemkin village here. Use the chopper spec details to calculate with resolution.jl
+    StationaryQConvolution(binning, qfwhm, ekernel; nperqbin, nperebin, nghosts)
+end
+
+function Base.show(io::IO, ::StationaryQConvolution)
+    printstyled(io, "Calculation Specification: Uniform Q-broadening\n"; bold=true, color=:underline)
+end
+
 ################################################################################
 # Bin sampling without convolution
 ################################################################################
@@ -101,17 +115,20 @@ struct UniformSampling <: AbstractCalculationSpec
     eidcs                                            # Indices corresponding to interior of energy bins. Same dimensions as binning.Es.
 end
 
+function Base.show(io::IO, ::UniformSampling)
+    printstyled(io, "Uniform Bin Sampling Specification\n"; bold=true, color=:underline)
+end
 
 """
     UniformSampling(binning::UniformBinning, ekernel; nperbin, nperebin=1)
 
 """
-function UniformSampling(binning::UniformBinning, ekernel; nperbin, nperebin=1)
+function UniformSampling(binning::UniformBinning, ekernel; nperqbin, nperebin=1)
     (; Δs, qcenters, Es, directions) = binning
 
     # Generate nperbin uniformly spaced samples for each bin, including in
     # padding bins.
-    (; qpoints, epoints) = sample_binning(binning; nperbin, nghosts=0, nperebin)
+    (; qpoints, epoints) = sample_binning(binning; nperqbin, nghosts=0, nperebin)
 
     # Keep track of which sample points are in which q-bins. 
     bounds = [(-Δ/2, Δ/2) for Δ in Δs[1:3]]
@@ -124,4 +141,10 @@ function UniformSampling(binning::UniformBinning, ekernel; nperbin, nperebin=1)
     end
 
     return UniformSampling(binning, qpoints, qidcs, ekernel, epoints, eidcs)
+end
+
+function UniformSampling(obs::Observation; nperqbin, nperebin=1)
+    (; binning, instrument) = obs
+    ekernel = nonstationary_gaussian(instrument)
+    UniformSampling(binning, ekernel; nperqbin, nperebin)
 end
