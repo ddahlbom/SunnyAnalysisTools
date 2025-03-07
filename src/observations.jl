@@ -72,3 +72,18 @@ function read_shiver_ascii(file, binning; instrument=nothing, filtersubzeros=fal
 
     return Observation(binning, ints, errs; instrument, filtersubzeros)
 end
+
+
+
+function StationaryQConvolution(obs::Observation; nperqbin, nperebin=1, nghosts=[1,1,1])
+    (; binning, instrument) = obs
+    ekernel = nonstationary_gaussian(instrument)
+    qfwhm = 0.002 # Potemkin village here. Use the chopper spec details to calculate with resolution.jl
+    StationaryQConvolution(binning, qfwhm, ekernel; nperqbin, nperebin, nghosts)
+end
+
+function UniformSampling(obs::Observation; nperqbin, nperebin=1)
+    (; binning, instrument) = obs
+    ekernel = nonstationary_gaussian(instrument)
+    UniformSampling(binning, ekernel; nperqbin, nperebin)
+end

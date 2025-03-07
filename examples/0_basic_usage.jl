@@ -1,15 +1,20 @@
 # # Going from data to optimization
 
 # Initialize the relevant projects.
-using Sunny, GLMakie, LinearAlgebra
-ENV["JULIA_CONDAPKG_BACKEND"] = "Null"
-ENV["JULIA_PYTHONCALL_EXE"] = "/home/uud/miniforge3/envs/neutron/bin/python"
-using PythonCall, SunnyAnalysisTools
 
-include("data/model.jl")
+using Sunny, GLMakie, LinearAlgebra
+ENV["JULIA_CONDAPKG_BACKEND"] = "Current"
+ENV["JULIA_CONDAPKG_EXE"] = "C:\\Users\\uud\\AppData\\Local\\miniforge3\\condabin\\mamba.bat"
+ENV["JULIA_PYTHONCALL_EXE"] = "C:\\Users\\uud\\AppData\\Local\\miniforge3\\envs\\neutron\\python.exe"
+using PythonCall
+
+using SunnyAnalysisTools
+
+include("examples/data/model.jl")
 
 # We'll be using Ba₃Mn₂O₈ as an example, a system consisting of ABC-stacked
-# triangular lattice bilayers. Begin by loading the 
+# triangular lattice bilayers. Begin by loading the crystal. 
+
 crystal_full = Crystal("examples/data/Ba3Mn2O8_OCD_2008132.cif"; symprec=1e-3)
 crystal = subcrystal(crystal_full, "Mn1")
 
@@ -40,12 +45,12 @@ fig = Figure()
 plot_binned_data!(fig[1,1], observation)
 fig
 
-# Now set up our Sunny model for this system.
+# Now set up our Sunny model. 
 
 params = (; J0=1.575, J1=0.12, J2=0.256, J3=0.142, J4=0.037, D=0.03)
 model = make_swt_model(crystal, params)
 
-# Perform a Sunny calculation using this model and the binning and instrument
+# Perform a Sunny calculation using this model using the binning and instrument
 # information above.
 
 calc_spec = UniformSampling(observation; nperqbin=2, nperebin=3)

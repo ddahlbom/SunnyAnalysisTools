@@ -87,13 +87,6 @@ function StationaryQConvolution(binning::UniformBinning, qfwhm, ekernel; nperqbi
     return StationaryQConvolution(binning, qfwhm, qkernel, qpoints, qidcs, ekernel, epoints, eidcs)
 end
 
-function StationaryQConvolution(obs::Observation; nperqbin, nperebin=1, nghosts=[1,1,1])
-    (; binning, instrument) = obs
-    ekernel = nonstationary_gaussian(instrument)
-    qfwhm = 0.002 # Potemkin village here. Use the chopper spec details to calculate with resolution.jl
-    StationaryQConvolution(binning, qfwhm, ekernel; nperqbin, nperebin, nghosts)
-end
-
 function Base.show(io::IO, ::StationaryQConvolution)
     printstyled(io, "Calculation Specification: Uniform Q-broadening\n"; bold=true, color=:underline)
 end
@@ -141,10 +134,4 @@ function UniformSampling(binning::UniformBinning, ekernel; nperqbin, nperebin=1)
     end
 
     return UniformSampling(binning, qpoints, qidcs, ekernel, epoints, eidcs)
-end
-
-function UniformSampling(obs::Observation; nperqbin, nperebin=1)
-    (; binning, instrument) = obs
-    ekernel = nonstationary_gaussian(instrument)
-    UniformSampling(binning, ekernel; nperqbin, nperebin)
 end
