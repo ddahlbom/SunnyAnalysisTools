@@ -22,3 +22,24 @@ function chi_square(obs::Observation, calc::ModelCalculation; scale=1.0, intensi
 
     return intensity_normalization ? (χ2 / total_intensity) / dof : χ2 / dof
 end
+
+function similarity_measure1(obs::Observation, calc::ModelCalculation; scale=1.0)
+    (; ints, errs, mask_idcs, background) = obs
+    (; data) = calc
+    @assert size(data) == size(ints)
+
+    calc_scaled = scale .* data
+
+    if !isnothing(background)
+        # TODO: Add addition of background to calculation here
+    end
+
+    err = 0.0
+    for idx in mask_idcs
+        if !iszero(errs[idx])
+            err += (ints[idx] - calc_scaled[idx])^2
+        end
+    end
+
+    return err 
+end

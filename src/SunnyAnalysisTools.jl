@@ -39,7 +39,7 @@ include("parsing.jl")
 # export read_shiver_ascii
 
 include("errors.jl")
-export chi_square
+export chi_square, similarity_measure1
 
 
 ################################################################################

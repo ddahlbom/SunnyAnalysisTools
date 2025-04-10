@@ -25,7 +25,7 @@ function nonstationary_gaussian(instrument::TripleAxisSpec)
     (; name, params) = instrument
 
     sigma = if name == "SPINS"
-        E -> sigma_to_fwhm((0.0949 + 0.0182E) / √2)
+        E -> (0.0949 + 0.0182E) / √2
     elseif name == "HMI"
         if params["resolution"] == "high"
             E -> (0.0886 + 0.0015E) / √2
