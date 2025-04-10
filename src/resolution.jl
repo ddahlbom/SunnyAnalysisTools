@@ -5,16 +5,40 @@
 function nonstationary_gaussian(instrument::ChopperSpec)
     (; Ei, L1, L2, L3, Δtp, Δtc, Δtd) = instrument
 
+    FWHM_to_sigma = 1/2sqrt(2log(2))
+
     # Calculate the resolution kernel at some representative points.
     Es = range(-Ei, Ei, 200)
-    dEs = [energy_resolution(Ei, E, L1, L2, L3, Δtp, Δtd, Δtc) for E in Es]
+    dEs = [FWHM_to_sigma*energy_resolution(Ei, E, L1, L2, L3, Δtp, Δtd, Δtc) for E in Es]
 
     # First a third-order polynomial to resulting values to determine a FWHM function.
     @. poly3(x, p) = p[1]*x^3 + p[2]*x^2 + p[3]*x + p[4]
     fit = curve_fit(poly3, Es, dEs, 0.1*ones(4))
-    fwhm(E) = poly3(E, fit.param)
+    sigma(E) = poly3(E, fit.param)
 
-    return Sunny.NonstationaryBroadening((b, ω) -> exp(-(ω-b)^2/2fwhm(b)^2) / √(2π*fwhm(b)^2))
+    return Sunny.NonstationaryBroadening((b, ω) -> exp(-(ω-b)^2/2sigma(b)^2) / √(2π*sigma(b)^2))
+end
+
+
+# This is a stub -- insert real model of triple-axis instrument later
+function nonstationary_gaussian(instrument::TripleAxisSpec)
+    (; name, params) = instrument
+
+    sigma = if name == "SPINS"
+        E -> sigma_to_fwhm((0.0949 + 0.0182E) / √2)
+    elseif name == "HMI"
+        if params["resolution"] == "high"
+            E -> (0.0886 + 0.0015E) / √2
+        elseif params["resolution"] == "low"
+            E ->  max( (-0.0594 + 0.0981E) / √2, 0.1 / √2 )
+        else
+            error("Unknown resolution setting for HMI")
+        end
+    else
+        error("Unknown triple-axis instrument")
+    end
+
+    return Sunny.NonstationaryBroadening((b, ω) -> exp(-(ω-b)^2/2sigma(b)^2) / √(2π*sigma(b)^2))
 end
 
 

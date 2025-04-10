@@ -51,7 +51,7 @@ end
 
 extension_fns = [
     :GLMakie => [:draw_boundary!, :visualize_binning, :plot_binned_data!, :plot_binnned_data],
-    :PythonCall => [:cncs]
+    :PythonCall => [:cncs, :spins, :hmi]
 ]
 
 for (_pkg, fns) in extension_fns

@@ -14,10 +14,20 @@ struct ChopperSpec <: AbstractInstrumentSpec
     Δθ   :: Float64
 end
 
-
 function Base.show(io::IO, obs::ChopperSpec)
     (; name, Ei) = obs
     printstyled(io, "Chopper Instrument\n"; bold=true, color=:underline)
     println(io, "Instrument name: ", name)
     println(io, "Incident energy: $Ei meV")
+end
+
+struct TripleAxisSpec <: AbstractInstrumentSpec
+    name :: String
+    params :: Dict{String, Any}
+end
+
+function Base.show(io::IO, obs::ChopperSpec)
+    (; name) = obs
+    printstyled(io, "Triple-axis Instrument\n"; bold=true, color=:underline)
+    println(io, "Instrument name: ", name)
 end

@@ -18,7 +18,22 @@ function SunnyAnalysisTools.cncs(; Ei, Δθ = 1.5)
     Δtc = chopper_width 
     Δtd = 0.0
 
-    SunnyAnalysisTools.ChopperSpec("CNCS", Ei, L1, L2, L3, Δtp, Δtc, Δtd, Δθ)
+    return SunnyAnalysisTools.ChopperSpec("CNCS", Ei, L1, L2, L3, Δtp, Δtc, Δtd, Δθ)
+end
+
+function SunnyAnalysisTools.spins()
+    params = Dict{String, Any}()
+    return SunnyAnalysisTools.TripleAxisSpec("SPINS", params)
+end
+
+function SunnyAnalysisTools.hmi(; hires=false)
+    params = Dict{String, Any}()
+    if hires
+        params["resolution"] = "high"
+    else
+        params["resolution"] = "low"
+    end
+    return SunnyAnalysisTools.TripleAxisSpec("HMI", params)
 end
 
 end
