@@ -23,6 +23,10 @@ end
 
 struct TripleAxisSpec <: AbstractInstrumentSpec
     name :: String
+    # # instrument data from 
+    # # instrument configuration
+    # # function wrapper to query TAVI
+    # Precalculated resolution matrices
     params :: Dict{String, Any}
 end
 
