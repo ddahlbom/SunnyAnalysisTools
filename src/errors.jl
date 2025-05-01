@@ -1,4 +1,16 @@
-function chi_square(obs::Observation, calc::ModelCalculation; scale=1.0, intensity_normalization=false)
+"""
+    chi_square(obs::Observation, calc::ModelCalculation; scale=1.0, ndof=1)
+
+Returns 
+
+```math
+    χ² = ∑_{j} (I_{exp}_j - I_{calc}_j)² / (ν σ_j²)
+```
+
+where `ν` is the number of degrees of freedom in the model, set with the keyword
+`ndof`.
+"""
+function chi_square(obs::Observation, calc::ModelCalculation; scale=1.0, ndof=1)
     (; ints, errs, mask_idcs, background) = obs
     (; data) = calc
     @assert size(data) == size(ints)
@@ -6,24 +18,32 @@ function chi_square(obs::Observation, calc::ModelCalculation; scale=1.0, intensi
     calc_scaled = scale .* data
 
     if !isnothing(background)
-        # TODO: Add addition of background to calculation here
+        warn("Background corrections not implemented")
     end
 
     χ2 = 0.0
-    dof = 0
-    total_intensity = 0.0
     for idx in mask_idcs
         if !iszero(errs[idx])
             χ2 += (ints[idx] - calc_scaled[idx])^2 / errs[idx]^2
-            dof += 1
-            total_intensity += ints[idx]
         end
     end
 
-    return intensity_normalization ? (χ2 / total_intensity) / dof : χ2 / dof
+    return χ2 / ndof 
 end
 
-function similarity_measure1(obs::Observation, calc::ModelCalculation; scale=1.0)
+"""
+    weighted_residual(obs::Observation, calc::ModelCalculation; scale=1.0)
+
+Returns 
+
+```math
+    R = ∑_{j} (I_{exp}_j - I_{calc}_j)² / (I_{calc}_j)^2
+```
+
+where `ν` is the number of degrees of freedom in the model, set with the keyword
+`ndof`.
+"""
+function weighted_residual(obs::Observation, calc::ModelCalculation; scale=1.0)
     (; ints, errs, mask_idcs, background) = obs
     (; data) = calc
     @assert size(data) == size(ints)
@@ -31,7 +51,74 @@ function similarity_measure1(obs::Observation, calc::ModelCalculation; scale=1.0
     calc_scaled = scale .* data
 
     if !isnothing(background)
-        # TODO: Add addition of background to calculation here
+        warn("Background corrections not implemented")
+    end
+
+    residual = 0.0
+    for idx in mask_idcs
+        if !iszero(errs[idx])
+            residual += (ints[idx] - calc_scaled[idx])^2 / (calc_scaled[idx]^2)
+        end
+    end
+
+    return residual 
+end
+
+"""
+    similarity_measure(obs::Observation, calc::ModelCalculation; scale=1.0)
+
+Returns 
+
+```math
+    R_{wp} = √[∑_{j} ((I_{exp}_j - I_{calc}_j) / σ_{exp})² / (I_{exp}_j / σ_{exp})²]
+```
+
+where `ν` is the number of degrees of freedom in the model, set with the keyword
+`ndof`.
+"""
+function similarity_measure(obs::Observation, calc::ModelCalculation; scale=1.0)
+    (; ints, errs, mask_idcs, background) = obs
+    (; data) = calc
+    @assert size(data) == size(ints)
+
+    calc_scaled = scale .* data
+
+    if !isnothing(background)
+        warn("Background corrections not implemented")
+    end
+
+    Rwp = 0.0
+    for idx in mask_idcs
+        if !iszero(errs[idx])
+            Rwp += ((ints[idx] - calc_scaled[idx])/errs[idx])^2 / (ints[idx]/errs[idx])^2
+        end
+    end
+
+    return √Rwp 
+end
+
+
+"""
+    squared_difference(obs::Observation, calc::ModelCalculation; scale=1.0)
+
+Returns 
+
+```math
+    χ² = ∑_{j} (I_{exp}_j - I_{calc}_j)²
+```
+
+where `ν` is the number of degrees of freedom in the model, set with the keyword
+`ndof`.
+"""
+function squared_difference(obs::Observation, calc::ModelCalculation; scale=1.0)
+    (; ints, errs, mask_idcs, background) = obs
+    (; data) = calc
+    @assert size(data) == size(ints)
+
+    calc_scaled = scale .* data
+
+    if !isnothing(background)
+        warn("Background corrections not implemented")
     end
 
     err = 0.0
@@ -41,5 +128,5 @@ function similarity_measure1(obs::Observation, calc::ModelCalculation; scale=1.0
         end
     end
 
-    return err 
+    return err
 end
