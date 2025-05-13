@@ -135,3 +135,16 @@ function UniformSampling(binning::UniformBinning, ekernel; nperqbin, nperebin=1)
 
     return UniformSampling(binning, qpoints, qidcs, ekernel, epoints, eidcs)
 end
+
+
+################################################################################
+# Triple-axis calculations
+################################################################################
+struct TripleAxisMC
+    path  :: TripleAxisPath
+    Ks    :: Vector{Mat3}
+    N     :: Int64
+end
+
+function TripleAxisMC(path, instrument; N)
+end

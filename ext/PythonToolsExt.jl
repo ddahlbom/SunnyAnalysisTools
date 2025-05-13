@@ -3,6 +3,28 @@ module PythonToolsExt
 using PythonCall, SunnyAnalysisTools
 
 
+struct TAVISpec <: SunnyAnalysisTools.AbstractInstrumentSpec
+    name             :: String
+    tavi_instrument  :: Py
+    params           :: Dict{String, Any}
+end
+
+
+function SunnyAnalysisTools.TAVISpec(name, instrumentfile::String; Ef, samplefile = nothing, params=Dict())
+    TAS = pyimport("tavi.instrument.tas").TAS
+    tavi_instrument = TAS(fixed_ef=Ef)
+    tavi_instrument.load_instrument_params_from_json(instrumentfile)
+    if !isnothing(samplefile)
+        Sample = pyimport("tavi.sample").Sample 
+        sample = Sample.from_json(samplefile)
+        tavi_instrument.mount_sample(sample)
+    end
+    return TAVISpec(name, tavi_instrument, params)
+end
+
+
+
+
 function SunnyAnalysisTools.cncs(; Ei, Δθ = 1.5)
     Instruments = pyimport("PyChop.Instruments")
     CNCS = Instruments.Instrument("CNCS")
@@ -35,5 +57,7 @@ function SunnyAnalysisTools.hmi(; hires=false)
     end
     return SunnyAnalysisTools.TripleAxisSpec("HMI", params)
 end
+
+
 
 end

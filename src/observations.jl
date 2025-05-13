@@ -1,4 +1,9 @@
-struct Observation
+abstract type AbstractObservation end
+
+################################################################################
+# Time-of-flight observations
+################################################################################
+struct TimeOfFlightObservation <: AbstractObservation
     instrument  :: Union{Nothing, AbstractInstrumentSpec}   # Data about the instrument -- stub for now
     binning     :: AbstractBinning                          # Binning used in observation
     ints        :: Array{Float64, 4}                        # Observed intensities
@@ -11,7 +16,7 @@ struct Observation
     params      :: Dict{String, Any}
 end
 
-function Observation(binning, ints, errs; instrument=nothing, model=nothing, background=nothing, filtersubzeros=false, params=nothing)
+function TimeOfFlightObservation(binning, ints, errs; instrument=nothing, model=nothing, background=nothing, filtersubzeros=false, params=nothing)
 
     # Check that intensities and errors are compatible with given binning.
     (; Es, qcenters) = binning
@@ -34,12 +39,11 @@ function Observation(binning, ints, errs; instrument=nothing, model=nothing, bac
 
     params = @something params Dict{String, Any}()
 
-    return Observation(instrument, binning, ints, errs, mask, mask_idcs, model, background, params)
+    return TimeOfFlightObservation(instrument, binning, ints, errs, mask, mask_idcs, model, background, params)
 end
 
-function Base.show(io::IO, obs::Observation)
-    (; binning) = obs
-    printstyled(io, "Experimental Observation\n"; bold=true, color=:underline)
+function Base.show(io::IO, ::TimeOfFlightObservation)
+    printstyled(io, "Time-of-Flight Observation\n"; bold=true, color=:underline)
 end
 
 
@@ -74,20 +78,37 @@ function read_shiver_ascii(file, binning; instrument=nothing, filtersubzeros=fal
 
     binning.labels = labels[permutation]
 
-    return Observation(binning, ints, errs; instrument, filtersubzeros)
+    return TimeOfFlightObservation(binning, ints, errs; instrument, filtersubzeros)
 end
 
 
 
-function StationaryQConvolution(obs::Observation; nperqbin, nperebin=1, nghosts=[1,1,1])
+function StationaryQConvolution(obs::TimeOfFlightObservation; nperqbin, nperebin=1, nghosts=[1,1,1])
     (; binning, instrument) = obs
     ekernel = nonstationary_gaussian(instrument)
     qfwhm = 0.002 # Potemkin village here. Use the chopper spec details to calculate with resolution.jl
     StationaryQConvolution(binning, qfwhm, ekernel; nperqbin, nperebin, nghosts)
 end
 
-function UniformSampling(obs::Observation; nperqbin, nperebin=1)
+function UniformSampling(obs::TimeOfFlightObservation; nperqbin, nperebin=1)
     (; binning, instrument) = obs
     ekernel = nonstationary_gaussian(instrument)
     UniformSampling(binning, ekernel; nperqbin, nperebin)
+end
+
+
+################################################################################
+# Triple-axis observations
+################################################################################
+
+struct TripleAxisObservation <: AbstractObservation
+    instrument  :: Union{Nothing, AbstractInstrumentSpec}   # Data about the instrument -- stub for now
+    Qs          :: Vector{Sunny.Vec3}
+    Es          :: Vector{Float64}
+    ints        :: Array{Float64, 4}                        # Observed intensities
+    errs        :: Array{Float64, 4}                        # Errors
+    model       :: Union{Nothing, AbstractDataModel}        # Model of data -- stub for now.
+    background  :: Union{Nothing, Function}                 # Model of background, given as a function f(q, E) (not sure worthy of a type yet)
+    
+    params      :: Dict{String, Any}
 end

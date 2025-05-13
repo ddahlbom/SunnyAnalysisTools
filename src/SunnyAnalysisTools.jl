@@ -27,7 +27,7 @@ include("resolution.jl")
 export nonstationary_gaussian
 
 include("observations.jl")
-export Observation, read_shiver_ascii
+export TimeOfFlightObservation, read_shiver_ascii
 
 include("models.jl")
 export SWTModel
@@ -51,7 +51,7 @@ end
 
 extension_fns = [
     :GLMakie => [:draw_boundary!, :visualize_binning, :plot_binned_data!, :plot_binnned_data],
-    :PythonCall => [:cncs, :spins, :hmi]
+    :PythonCall => [:cncs, :spins, :hmi, :TAVISpec]
 ]
 
 for (_pkg, fns) in extension_fns

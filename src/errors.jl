@@ -1,5 +1,5 @@
 """
-    chi_square(obs::Observation, calc::ModelCalculation; scale=1.0, ndof=1)
+    chi_square(obs::TimeOfFlightObservation, calc::ModelCalculation; scale=1.0, ndof=1)
 
 Returns 
 
@@ -10,7 +10,7 @@ Returns
 where `ν` is the number of degrees of freedom in the model, set with the keyword
 `ndof`.
 """
-function chi_square(obs::Observation, calc::ModelCalculation; scale=1.0, ndof=1)
+function chi_square(obs::TimeOfFlightObservation, calc::ModelCalculation; scale=1.0, ndof=1)
     (; ints, errs, mask_idcs, background) = obs
     (; data) = calc
     @assert size(data) == size(ints)
@@ -32,7 +32,7 @@ function chi_square(obs::Observation, calc::ModelCalculation; scale=1.0, ndof=1)
 end
 
 """
-    weighted_residual(obs::Observation, calc::ModelCalculation; scale=1.0)
+    weighted_residual(obs::TimeOfFlightObservation, calc::ModelCalculation; scale=1.0)
 
 Returns 
 
@@ -43,7 +43,7 @@ Returns
 where `ν` is the number of degrees of freedom in the model, set with the keyword
 `ndof`.
 """
-function weighted_residual(obs::Observation, calc::ModelCalculation; scale=1.0)
+function weighted_residual(obs::TimeOfFlightObservation, calc::ModelCalculation; scale=1.0)
     (; ints, errs, mask_idcs, background) = obs
     (; data) = calc
     @assert size(data) == size(ints)
@@ -65,7 +65,7 @@ function weighted_residual(obs::Observation, calc::ModelCalculation; scale=1.0)
 end
 
 """
-    similarity_measure(obs::Observation, calc::ModelCalculation; scale=1.0)
+    similarity_measure(obs::TimeOfFlightObservation, calc::ModelCalculation; scale=1.0)
 
 Returns 
 
@@ -76,7 +76,7 @@ Returns
 where `ν` is the number of degrees of freedom in the model, set with the keyword
 `ndof`.
 """
-function similarity_measure(obs::Observation, calc::ModelCalculation; scale=1.0)
+function similarity_measure(obs::TimeOfFlightObservation, calc::ModelCalculation; scale=1.0)
     (; ints, errs, mask_idcs, background) = obs
     (; data) = calc
     @assert size(data) == size(ints)
@@ -99,7 +99,7 @@ end
 
 
 """
-    squared_difference(obs::Observation, calc::ModelCalculation; scale=1.0)
+    squared_difference(obs::TimeOfFlightObservation, calc::ModelCalculation; scale=1.0)
 
 Returns 
 
@@ -110,7 +110,7 @@ Returns
 where `ν` is the number of degrees of freedom in the model, set with the keyword
 `ndof`.
 """
-function squared_difference(obs::Observation, calc::ModelCalculation; scale=1.0)
+function squared_difference(obs::TimeOfFlightObservation, calc::ModelCalculation; scale=1.0)
     (; ints, errs, mask_idcs, background) = obs
     (; data) = calc
     @assert size(data) == size(ints)
