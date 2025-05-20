@@ -140,11 +140,11 @@ end
 ################################################################################
 # Triple-axis calculations
 ################################################################################
-struct TripleAxisMC
-    path  :: TripleAxisPath
-    Ks    :: Vector{Mat3}
+struct TripleAxisMC{N}
+    path  :: Union{TripleAxisPath, TripleAxis2DContour}
+    Ks    # :: Array{SMatrix{4, 4, Float64, 16}, N}
     N     :: Int64
 end
 
-function TripleAxisMC(path, instrument; N)
-end
+# See PythonToolsExt for constructor
+# TripleAxisMC(path, instrument::TAVISpec; N)

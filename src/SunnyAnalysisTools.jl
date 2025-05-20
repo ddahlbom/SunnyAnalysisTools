@@ -1,8 +1,9 @@
 module SunnyAnalysisTools
 
 import Sunny
-using LinearAlgebra, Random, LsqFit, FFTW
+using LinearAlgebra, Random, LsqFit, FFTW, StaticArrays
 import DelimitedFiles: readdlm
+import Distributions: MvNormal
 
 ################################################################################
 # Files and exports 
@@ -20,8 +21,11 @@ export gaussian_mixture_model
 include("binning.jl")
 export UniformBinning
 
+include("paths.jl")
+export TripleAxisPath, TripleAxis2DContour
+
 include("calculation_spec.jl")
-export Calculation, StationaryQConvolution, UniformSampling
+export Calculation, StationaryQConvolution, UniformSampling, TripleAxisMC
 
 include("resolution.jl")
 export nonstationary_gaussian
@@ -51,7 +55,7 @@ end
 
 extension_fns = [
     :GLMakie => [:draw_boundary!, :visualize_binning, :plot_binned_data!, :plot_binnned_data],
-    :PythonCall => [:cncs, :spins, :hmi, :TAVISpec]
+    :PythonCall => [:cncs, :spins, :hmi, :TAVISpec, :TripleAxisMC]
 ]
 
 for (_pkg, fns) in extension_fns

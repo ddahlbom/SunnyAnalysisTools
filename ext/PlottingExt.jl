@@ -107,7 +107,7 @@ function SunnyAnalysisTools.plot_binned_data!(panel, data, binning::SunnyAnalysi
 end
 
 
-function SunnyAnalysisTools.plot_binned_data!(panel, observation::SunnyAnalysisTools.Observation; kwargs...)
+function SunnyAnalysisTools.plot_binned_data!(panel, observation::SunnyAnalysisTools.TimeOfFlightObservation; kwargs...)
     (; ints, binning) = observation
     plot_binned_data!(panel, ints, binning; kwargs...)
 end

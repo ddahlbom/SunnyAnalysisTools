@@ -22,8 +22,35 @@ function SunnyAnalysisTools.TAVISpec(name, instrumentfile::String; Ef, samplefil
     return TAVISpec(name, tavi_instrument, params)
 end
 
+function SunnyAnalysisTools.TripleAxisMC(path::TripleAxisPath, instrument::TAVISpec; N)
+    (; HKLs, Es, projection) = path
+    (; tavi_instrument) = instrument
 
+    projection_py = tuple([tuple(col...) for col in eachcol(projection)]...)
+    resmats_py = [tavi_instrument.cooper_nathans(hkl=pylist([tuple(HKL...)]), en=pylist([E]), projection=projection_py) for (HKL, E) in zip(HKLs, Es)]
+    Ks = [pyconvert(Array{Float64, 2}, res_elipse.mat) for res_elipse in resmats_py]
+    println(length(Ks))
 
+    SunnyAnalysisTools.TripleAxisMC{1}(path, Ks, N)
+end
+
+# Assuming a 2D contour plot is desired (take product of Q and E points).
+function SunnyAnalysisTools.TripleAxisMC(path::TripleAxis2DContour, instrument::TAVISpec; N)
+    (; HKLs, Es, projection) = path
+    (; tavi_instrument) = instrument
+
+    HKLs_py = pylist([tuple(hkl...) for hkl in HKLs])
+    Es_py = pylist(Es) 
+    projection_py = tuple([tuple(col...) for col in eachcol(projection)]...)
+
+    rez_list = tavi_instrument.cooper_nathans(hkl=HKLs_py, en=Es_py, projection=projection_py)
+
+    Ks = [pyconvert(Array{Float64, 2}, res_elipse.mat) for res_elipse in rez_list]
+    hkl = [pyconvert(Vector, res_elipse.hkl) for res_elipse in rez_list]
+    Es = [pyconvert(Float64, res_elipse.en) for res_elipse in rez_list]
+
+    SunnyAnalysisTools.TripleAxisMC{2}(path, Ks, N)
+end
 
 function SunnyAnalysisTools.cncs(; Ei, Δθ = 1.5)
     Instruments = pyimport("PyChop.Instruments")
