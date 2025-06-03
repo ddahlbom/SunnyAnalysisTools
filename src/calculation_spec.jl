@@ -146,5 +146,15 @@ struct TripleAxisMC{N}
     N     :: Int64
 end
 
+# Right now this is a useless type which is only used for dispatch. In the
+# future, it can be used to store any precalculated heuristics, e.g. directions
+# and bounds for each point or, for example, a complete and minimal set of
+# qs that need to be calculate to convolve all points in the path.
+# 
+struct TripleAxisGrid{N}
+    path  :: Union{TripleAxisPath, TripleAxis2DContour}
+    Ks    # :: Array{SMatrix{4, 4, Float64, 16}, N}
+end
+
 # See PythonToolsExt for constructor
 # TripleAxisMC(path, instrument::TAVISpec; N)
