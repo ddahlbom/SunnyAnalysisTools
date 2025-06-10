@@ -123,7 +123,7 @@ function squared_difference(obs::TimeOfFlightObservation, calc::ModelCalculation
 
     err = 0.0
     for idx in mask_idcs
-        if !iszero(errs[idx])
+        if !iszero(errs[idx]) && ints[idx] >= 0.0
             err += (ints[idx] - calc_scaled[idx])^2
         end
     end

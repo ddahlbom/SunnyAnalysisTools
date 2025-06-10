@@ -52,7 +52,7 @@ function calculate_intensities(swtmodel::SWTModel, broadening_spec::UniformSampl
         end
         res[j, i] /= length(eidcs[j]) * length(qidcs[i])
     end
-    res .*= binvol
+    res .*= abs(binvol)
 
     # spec and params
     ModelCalculation(res, binning, broadening_spec, swtmodel.params)

@@ -2,7 +2,7 @@
 # Energy broadening
 ################################################################################
 
-function nonstationary_gaussian(instrument::ChopperSpec)
+function nonstationary_gaussian(instrument::ChopperSpec; intrinsic_width=0)
     (; Ei, L1, L2, L3, Δtp, Δtc, Δtd) = instrument
 
     FWHM_to_sigma = 1/2sqrt(2log(2))
@@ -10,6 +10,9 @@ function nonstationary_gaussian(instrument::ChopperSpec)
     # Calculate the resolution kernel at some representative points.
     Es = range(-Ei, Ei, 200)
     dEs = [FWHM_to_sigma*energy_resolution(Ei, E, L1, L2, L3, Δtp, Δtd, Δtc) for E in Es]
+    dEs = map(dEs) do dE
+        sqrt(dE^2 + intrinsic_width^2)
+    end
 
     # First a third-order polynomial to resulting values to determine a FWHM function.
     @. poly3(x, p) = p[1]*x^3 + p[2]*x^2 + p[3]*x + p[4]
@@ -18,6 +21,8 @@ function nonstationary_gaussian(instrument::ChopperSpec)
 
     return Sunny.NonstationaryBroadening((b, ω) -> exp(-(ω-b)^2/2sigma(b)^2) / √(2π*sigma(b)^2))
 end
+# σ = FWHM_to_sigma*SunnyAnalysisTools.energy_resolution(Ei, μ > Ei ? Ei : μ, L1, L2, L3, Δtp, Δtd, Δtc)
+# σ_tot = sqrt(σ^2 + λ^2)
 
 
 # This is a stub -- insert real model of triple-axis instrument later
