@@ -1,7 +1,10 @@
 ################################################################################
 # Time-of-flight intensities calculations 
 ################################################################################
-function calculate_intensities(swtmodel::SWTModel, broadening_spec::StationaryQConvolution; kwargs...)
+function calculate_intensities(swtmodel::SWTModel, broadening_spec::StationaryQConvolution; 
+    observation = nothing,
+    kwargs...
+)
     (; swt) = swtmodel
     (; qpoints, epoints, qidcs, eidcs, qkernel, ekernel, binning) = broadening_spec
     (; qcenters, Es, binvol, crystvol) = binning
@@ -29,18 +32,39 @@ function calculate_intensities(swtmodel::SWTModel, broadening_spec::StationaryQC
     end
     res .*= binvol
 
+    if !isnothing(observation)
+        for i in eachindex(res)
+            if isnan(observation.ints[i])
+                res[i] = NaN
+            end
+        end
+    end
+
     # spec and params
     ModelCalculation(res, binning, broadening_spec, swtmodel.params)
 end
 
 
-function calculate_intensities(swtmodel::SWTModel, broadening_spec::UniformSampling; kwargs...)
+function calculate_intensities(swtmodel::SWTModel, broadening_spec::UniformSampling; 
+    unit_intensity=false, 
+    thresh=1e-12, 
+    observation = nothing, 
+    kwargs...
+)
     (; swt) = swtmodel
     (; qpoints, epoints, qidcs, eidcs, ekernel, binning) = broadening_spec
     (; qcenters, Es, binvol) = binning
 
     # Calculate intensities for all points in subsuming grid around bin.
-    res = Sunny.intensities(swt, qpoints[:]; energies=epoints, kernel=ekernel, kwargs...)
+    # res = Sunny.intensities(swt, qpoints[:]; energies=epoints, kernel=ekernel, kwargs...)
+
+    dispersion_and_intensities = Sunny.intensities_bands(swt, qpoints[:])
+    if unit_intensity
+        dispersion_and_intensities.data .= map(dispersion_and_intensities.data) do val
+            val > thresh ? 1.0 : 0.0
+        end
+    end
+    res = Sunny.broaden(dispersion_and_intensities; energies=epoints, kernel=ekernel, kwargs...)
     data = reshape(res.data, (length(epoints), size(qpoints)...))
 
     # Sum over samples that lie within each bin and normalize by number of
@@ -53,6 +77,14 @@ function calculate_intensities(swtmodel::SWTModel, broadening_spec::UniformSampl
         res[j, i] /= length(eidcs[j]) * length(qidcs[i])
     end
     res .*= abs(binvol)
+
+    if !isnothing(observation)
+        for i in eachindex(res)
+            if isnan(observation.ints[i])
+                res[i] = NaN
+            end
+        end
+    end
 
     # spec and params
     ModelCalculation(res, binning, broadening_spec, swtmodel.params)

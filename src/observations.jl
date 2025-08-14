@@ -54,16 +54,16 @@ Parse a Shiver file and return an Observation. An appropriate UniformBinning
 must be provided. Instrument information may optionally be attached to the
 resulting Observation.
 """
-function read_shiver_ascii(file, binning; instrument=nothing, filtersubzeros=false)
+function read_shiver_ascii(file, binning; instrument=nothing, filtersubzeros=false, permutation=nothing)
     data = readdlm(file)
 
     # Read metadata from the shiver file
     labels = data[1,4:7]
     shape = parse.(Int64, split(data[2,3], "x"))
 
-    # Set up a permutation that moves the enegy axis to the first index.
+    # Set up a permutation that moves the energy axis to the first index.
     eidx = findfirst(label -> label==("DeltaE"), labels)
-    permutation = [1, 2, 3, 4]
+    permutation = @something permutation [1, 2, 3, 4]
     permutation = [eidx, deleteat!(permutation, eidx)...]  # Shift energy to first position
 
     # Read the intensities and errors, reshaping (to deal with data that must be
@@ -80,6 +80,7 @@ function read_shiver_ascii(file, binning; instrument=nothing, filtersubzeros=fal
 
     return TimeOfFlightObservation(binning, ints, errs; instrument, filtersubzeros)
 end
+
 
 
 

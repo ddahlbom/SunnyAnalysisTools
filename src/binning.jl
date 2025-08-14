@@ -41,8 +41,8 @@ mutable struct UniformBinning <: AbstractBinning
         end
 
         # Calculate the volume of the bin as a fraction of 1 BZ
-        binvol = det(directions*diagm([Δs[1:3]...])) * Δs[4]
-        crystvol = det(crystal.latvecs)
+        binvol = abs(det(directions*diagm([Δs[1:3]...]))) * Δs[4]
+        crystvol = abs(det(crystal.latvecs))
 
         # If only bounds are given (as opposed to a list) determine center point.
         Us, Vs, Ws, Es = map([Us, Vs, Ws, Es]) do vals
